@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { 
   Settings as SettingsIcon, 
@@ -122,6 +123,7 @@ export default function Settings() {
   const [clubsList, setClubsList] = useState<Array<{ id: string; name: string; created_at?: string }>>([]);
   const [clubNameDraft, setClubNameDraft] = useState<string>("");
   const [loadingClubs, setLoadingClubs] = useState<boolean>(false);
+  const [isSwitchOpen, setIsSwitchOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (!clubId) return;
@@ -591,6 +593,57 @@ export default function Settings() {
                   {/* Basic Information */}
                   <div>
                     <h3 className="settings-heading text-lg font-bold mb-4">Basic Information</h3>
+                    {/* Change Club inline action */}
+                    <div className="mb-4">
+                      <Dialog open={isSwitchOpen} onOpenChange={(o) => { setIsSwitchOpen(o); if (o) loadClubsList(); }}>
+                        <DialogTrigger asChild>
+                          <Button variant="outline" className="border-gray-300">Change Club</Button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-white border-gray-200">
+                          <DialogHeader>
+                            <DialogTitle className="text-xl font-bold text-gray-900">Switch Club</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-6">
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-2">Create New</h4>
+                              <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                                <Input
+                                  placeholder="Club name"
+                                  value={clubNameDraft}
+                                  onChange={(e) => setClubNameDraft(e.target.value)}
+                                  className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                                />
+                                <Button onClick={createClubInline} style={{ backgroundColor: '#0172fb' }} className="text-white">Create</Button>
+                              </div>
+                            </div>
+
+                            <div>
+                              <h4 className="font-semibold text-gray-900 mb-2">Existing Clubs</h4>
+                              {loadingClubs ? (
+                                <div className="p-4 text-center text-gray-500">Loading…</div>
+                              ) : clubsList.length === 0 ? (
+                                <div className="p-4 text-center text-gray-500 border rounded-lg">No clubs found.</div>
+                              ) : (
+                                <div className="space-y-2 max-h-64 overflow-auto">
+                                  {clubsList.map((c) => (
+                                    <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg">
+                                      <div>
+                                        <div className="font-medium text-gray-900">{c.name}</div>
+                                        <div className="text-xs text-gray-500">{c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}</div>
+                                      </div>
+                                      <Button variant="outline" className="border-gray-300" onClick={() => selectClubInline(c.id, c.name)}>Select</Button>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button variant="outline" className="border-gray-300" onClick={() => setIsSwitchOpen(false)}>Close</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
                         <Label htmlFor="club-name" className="text-sm font-medium text-gray-700">Club Name *</Label>
