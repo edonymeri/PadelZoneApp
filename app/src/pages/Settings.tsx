@@ -118,6 +118,11 @@ export default function Settings() {
   // Team Members (simplified)
   const [teamMembers, setTeamMembers] = useState<any[]>([]);
 
+  // When no club is selected, let the user select or create one inline
+  const [clubsList, setClubsList] = useState<Array<{ id: string; name: string; created_at?: string }>>([]);
+  const [clubNameDraft, setClubNameDraft] = useState<string>("");
+  const [loadingClubs, setLoadingClubs] = useState<boolean>(false);
+
   useEffect(() => {
     if (!clubId) return;
     loadSettings();
@@ -233,6 +238,51 @@ export default function Settings() {
     if (prefs) {
       setUserPrefs(JSON.parse(prefs));
     }
+  }
+
+  // -------- No-club helpers --------
+  async function loadClubsList() {
+    try {
+      setLoadingClubs(true);
+      const { data, error } = await supabase
+        .from("clubs")
+        .select("id,name,created_at")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setClubsList(data || []);
+    } catch (e: any) {
+      console.error("Failed to load clubs list:", e);
+      toast({ variant: "destructive", title: "Failed to load clubs", description: e.message || "" });
+    } finally {
+      setLoadingClubs(false);
+    }
+  }
+
+  async function createClubInline() {
+    if (!clubNameDraft.trim()) {
+      toast({ variant: "destructive", title: "Club name is required" });
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("clubs")
+        .insert({ name: clubNameDraft.trim() })
+        .select()
+        .single();
+      if (error) throw error;
+      localStorage.setItem("clubId", data.id);
+      toast({ title: "Club created", description: data.name });
+      // reload to pick up new clubId across app
+      window.location.reload();
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Create failed", description: e.message || "" });
+    }
+  }
+
+  function selectClubInline(id: string, name: string) {
+    localStorage.setItem("clubId", id);
+    toast({ title: "Club selected", description: name });
+    window.location.reload();
   }
 
   async function saveClubSettings() {
@@ -395,17 +445,69 @@ export default function Settings() {
   }
 
   if (!clubId) {
+    // Lazy load clubs list for inline selection
+    if (!loadingClubs && clubsList.length === 0) {
+      // fire and forget; safe in render guard
+      loadClubsList();
+    }
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="max-w-md mx-auto">
-          <CardContent className="pt-6 text-center">
-            <Building2 className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a Club</h3>
-            <p className="text-gray-600 mb-4">
-              Please select a club from the header to access settings.
-            </p>
-          </CardContent>
-        </Card>
+      <div className="min-h-screen bg-gray-50">
+        <div className="container mx-auto px-4 py-8 max-w-3xl">
+          <div className="mb-6">
+            <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
+            <p className="text-gray-600">Choose or create a club to continue.</p>
+          </div>
+
+          <Card className="border-2 border-gray-200 shadow-lg bg-white">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-black font-bold">
+                <Building2 className="w-5 h-5" style={{ color: '#0172fb' }} />
+                Select a Club
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {/* Create club */}
+              <div>
+                <h3 className="text-lg font-bold mb-3">Create Club</h3>
+                <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+                  <Input
+                    placeholder="Club name"
+                    value={clubNameDraft}
+                    onChange={(e) => setClubNameDraft(e.target.value)}
+                    className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                  />
+                  <Button onClick={createClubInline} style={{ backgroundColor: '#0172fb' }} className="text-white">
+                    Create
+                  </Button>
+                </div>
+              </div>
+
+              {/* Existing clubs */}
+              <div>
+                <h3 className="text-lg font-bold mb-3">Or select an existing club</h3>
+                {loadingClubs ? (
+                  <div className="p-4 text-center text-gray-500">Loading clubs…</div>
+                ) : clubsList.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500 border rounded-lg">No clubs yet.</div>
+                ) : (
+                  <div className="space-y-3">
+                    {clubsList.map((c) => (
+                      <div key={c.id} className="flex items-center justify-between p-3 border rounded-lg">
+                        <div>
+                          <div className="font-medium text-gray-900">{c.name}</div>
+                          <div className="text-xs text-gray-500">Created {c.created_at ? new Date(c.created_at).toLocaleDateString() : ''}</div>
+                        </div>
+                        <Button variant="outline" className="border-gray-300" onClick={() => selectClubInline(c.id, c.name)}>
+                          Select
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     );
   }
