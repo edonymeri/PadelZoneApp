@@ -1,0 +1,11 @@
+/* Force black text for settings headings */
+.settings-heading {
+  color: #000000 !important;
+  font-weight: bold !important;
+}
+
+.settings-main-title {
+  color: #000000 !important;
+  font-weight: bold !important;
+  font-size: 1.875rem !important;
+}

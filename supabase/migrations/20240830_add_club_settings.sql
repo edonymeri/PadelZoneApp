@@ -1,0 +1,15 @@
+-- Add additional columns to clubs table for settings functionality
+
+ALTER TABLE clubs 
+ADD COLUMN IF NOT EXISTS description TEXT,
+ADD COLUMN IF NOT EXISTS contact_email TEXT,
+ADD COLUMN IF NOT EXISTS phone TEXT,
+ADD COLUMN IF NOT EXISTS address TEXT,
+ADD COLUMN IF NOT EXISTS website TEXT,
+ADD COLUMN IF NOT EXISTS timezone TEXT DEFAULT 'UTC',
+ADD COLUMN IF NOT EXISTS default_round_minutes INTEGER DEFAULT 12,
+ADD COLUMN IF NOT EXISTS default_courts INTEGER DEFAULT 4,
+ADD COLUMN IF NOT EXISTS default_points_per_game INTEGER,
+ADD COLUMN IF NOT EXISTS logo_url TEXT,
+ADD COLUMN IF NOT EXISTS primary_color TEXT DEFAULT '#0172fb',
+ADD COLUMN IF NOT EXISTS secondary_color TEXT DEFAULT '#01CBFC';
