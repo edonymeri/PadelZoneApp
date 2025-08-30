@@ -50,12 +50,12 @@ export default function EventReviewStep({
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <Card className="border-2 border-gray-200 shadow-lg bg-white w-full">
       <CardHeader>
-        <CardTitle className="text-center text-2xl font-bold">
+        <CardTitle className="text-center text-2xl font-bold text-gray-900">
           🎯 Review Your Event
         </CardTitle>
-        <p className="text-center text-muted-foreground">
+        <p className="text-center text-gray-600">
           Review all details before creating your event.
         </p>
       </CardHeader>
@@ -64,50 +64,50 @@ export default function EventReviewStep({
         <div className="grid md:grid-cols-2 gap-6">
           {/* Basic Info */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-blue-300">Event Information</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Event Information</h3>
             <div className="space-y-3">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Event Name:</span>
-                <span className="font-medium">{eventData.name}</span>
+                <span className="text-gray-600">Event Name:</span>
+                <span className="font-medium text-gray-900">{eventData.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Mode:</span>
-                <Badge variant="outline">{getModeLabel(eventData.mode)}</Badge>
+                <span className="text-gray-600">Mode:</span>
+                <Badge variant="outline" className="border-gray-300 text-gray-700">{getModeLabel(eventData.mode)}</Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Game Type:</span>
-                <Badge variant="outline">{getGameTypeLabel()}</Badge>
+                <span className="text-gray-600">Game Type:</span>
+                <Badge variant="outline" className="border-gray-300 text-gray-700">{getGameTypeLabel()}</Badge>
               </div>
               {eventData.max_rounds && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Max Rounds:</span>
-                  <span className="font-medium">{eventData.max_rounds}</span>
+                  <span className="text-gray-600">Max Rounds:</span>
+                  <span className="font-medium text-gray-900">{eventData.max_rounds}</span>
                 </div>
               )}
               {eventData.event_duration_hours && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Duration:</span>
-                  <span className="font-medium">{eventData.event_duration_hours} hours</span>
+                  <span className="text-gray-600">Duration:</span>
+                  <span className="font-medium text-gray-900">{eventData.event_duration_hours} hours</span>
                 </div>
               )}
               {eventData.wildcard_enabled && (
                 <>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">🎲 Wildcards:</span>
+                    <span className="text-gray-600">🎲 Wildcards:</span>
                     <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
                       Enabled
                     </Badge>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Start Round:</span>
-                    <span className="font-medium">{eventData.wildcard_start_round}</span>
+                    <span className="text-gray-600">Start Round:</span>
+                    <span className="font-medium text-gray-900">{eventData.wildcard_start_round}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Frequency:</span>
-                    <span className="font-medium">Every {eventData.wildcard_frequency} rounds</span>
+                    <span className="text-gray-600">Frequency:</span>
+                    <span className="font-medium text-gray-900">Every {eventData.wildcard_frequency} rounds</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">Intensity:</span>
+                    <span className="text-gray-600">Intensity:</span>
                     <Badge variant="outline" className={
                       eventData.wildcard_intensity === 'mild' ? 'bg-green-50 text-green-700 border-green-200' :
                       eventData.wildcard_intensity === 'medium' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' :
@@ -123,18 +123,18 @@ export default function EventReviewStep({
 
           {/* Courts Info */}
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-green-300">Courts</h3>
+            <h3 className="text-lg font-semibold text-gray-900">Courts</h3>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Number of Courts:</span>
-                <Badge variant="outline">{eventData.courts}</Badge>
+                <span className="text-gray-600">Number of Courts:</span>
+                <Badge variant="outline" className="border-gray-300 text-gray-700">{eventData.courts}</Badge>
               </div>
               <Separator />
               <div className="space-y-2">
                 {eventData.court_names.map((courtName, index) => (
                   <div key={index} className="flex justify-between items-center">
-                    <span className="text-muted-foreground">Court {index + 1}:</span>
-                    <span className="font-medium text-green-300">{courtName}</span>
+                    <span className="text-gray-600">Court {index + 1}:</span>
+                    <span className="font-medium text-gray-900">{courtName}</span>
                   </div>
                 ))}
               </div>
@@ -144,20 +144,20 @@ export default function EventReviewStep({
 
         {/* Players Section */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-purple-300">Players ({selectedPlayers.length})</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Players ({selectedPlayers.length})</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {selectedPlayers.map((playerId) => {
               const player = players[playerId];
               if (!player) return null;
               
               const skillLevel = player.elo >= 1500 ? 'Expert' : player.elo >= 1200 ? 'Advanced' : 'Intermediate';
-              const skillColor = player.elo >= 1500 ? 'text-green-300' : player.elo >= 1200 ? 'text-yellow-300' : 'text-red-300';
+              const skillColor = player.elo >= 1500 ? 'text-green-600' : player.elo >= 1200 ? 'text-yellow-600' : 'text-red-600';
               
               return (
-                <div key={playerId} className="flex items-center gap-3 p-3 border rounded-lg bg-background/50">
+                <div key={playerId} className="flex items-center gap-3 p-3 border-2 border-gray-200 rounded-lg bg-white">
                   <div className="flex-1">
-                    <div className="font-medium">{player.full_name}</div>
-                    <div className="text-sm text-muted-foreground">
+                    <div className="font-medium text-gray-900">{player.full_name}</div>
+                    <div className="text-sm text-gray-600">
                       ELO: {player.elo} • <span className={skillColor}>{skillLevel}</span>
                     </div>
                   </div>
@@ -168,28 +168,28 @@ export default function EventReviewStep({
         </div>
 
         {/* Summary Stats */}
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-300 mb-3">Event Summary</h4>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-semibold text-blue-800 mb-3">Event Summary</h4>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
             <div>
-              <div className="text-2xl font-bold text-blue-300">{eventData.courts}</div>
-              <div className="text-sm text-muted-foreground">Courts</div>
+              <div className="text-2xl font-bold text-blue-600">{eventData.courts}</div>
+              <div className="text-sm text-gray-600">Courts</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-green-300">{selectedPlayers.length}</div>
-              <div className="text-sm text-muted-foreground">Players</div>
+              <div className="text-2xl font-bold text-green-600">{selectedPlayers.length}</div>
+              <div className="text-sm text-gray-600">Players</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-purple-300">
+              <div className="text-2xl font-bold text-purple-600">
                 {Math.floor(selectedPlayers.length / 4)}
               </div>
-              <div className="text-sm text-muted-foreground">Teams</div>
+              <div className="text-sm text-gray-600">Teams</div>
             </div>
             <div>
-              <div className="text-2xl font-bold text-yellow-300">
+              <div className="text-2xl font-bold text-yellow-600">
                 {eventData.points_per_game || eventData.round_minutes}
               </div>
-              <div className="text-sm text-muted-foreground">
+              <div className="text-sm text-gray-600">
                 {eventData.points_per_game ? 'Points' : 'Minutes'}
               </div>
             </div>
@@ -198,15 +198,16 @@ export default function EventReviewStep({
 
         {/* Navigation */}
         <div className="flex justify-between pt-4">
-          <Button onClick={onBack} variant="outline">
+          <Button onClick={onBack} variant="outline" className="border-gray-300">
             ← Back
           </Button>
           <Button 
             onClick={onCreateEvent} 
             disabled={isCreating}
-            className="bg-green-600 hover:bg-green-700"
+            style={{ backgroundColor: '#0172fb' }}
+            className="hover:opacity-90 text-white disabled:opacity-50"
           >
-            {isCreating ? 'Creating Event...' : '🎾 Create Event'}
+            {isCreating ? 'Creating Event...' : '🚀 Create Event'}
           </Button>
         </div>
       </CardContent>

@@ -72,12 +72,12 @@ export default function CourtNamingStep({
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card className="border-2 border-gray-200 shadow-lg bg-white w-full">
       <CardHeader>
-        <CardTitle className="text-center text-2xl font-bold">
+        <CardTitle className="text-center text-2xl font-bold text-gray-900">
           🏆 Name Your Courts
         </CardTitle>
-        <p className="text-center text-muted-foreground">
+        <p className="text-center text-gray-600">
           Customize your court names. Court 1 is typically your main court (Winners Court).
         </p>
       </CardHeader>
@@ -86,8 +86,8 @@ export default function CourtNamingStep({
         <div className="space-y-4">
           <div className="grid gap-4">
             {Array.from({ length: numberOfCourts }, (_, index) => (
-              <div key={index} className="flex items-center gap-4 p-4 border rounded-lg bg-background/50">
-                <Badge variant="outline" className="min-w-[80px] text-center">
+              <div key={index} className="flex items-center gap-4 p-4 border-2 border-gray-200 rounded-lg bg-gray-50">
+                <Badge variant="outline" className="min-w-[80px] text-center border-gray-300 text-gray-700">
                   Court {index + 1}
                 </Badge>
                 
@@ -97,25 +97,26 @@ export default function CourtNamingStep({
                       value={editValue}
                       onChange={(e) => setEditValue(e.target.value)}
                       placeholder={`Enter name for Court ${index + 1}`}
-                      className="flex-1"
+                      className="flex-1 bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
                       autoFocus
                     />
-                    <Button size="sm" onClick={handleSaveCourt} variant="default">
+                    <Button size="sm" onClick={handleSaveCourt} style={{ backgroundColor: '#0172fb' }} className="text-white">
                       Save
                     </Button>
-                    <Button size="sm" onClick={handleCancelEdit} variant="outline">
+                    <Button size="sm" onClick={handleCancelEdit} variant="outline" className="border-gray-300">
                       Cancel
                     </Button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 flex-1">
-                    <span className="flex-1 font-medium text-lg">
+                    <span className="flex-1 font-medium text-lg text-gray-900">
                       {courtNames[index] || getDefaultCourtName(index + 1)}
                     </span>
                     <Button 
                       size="sm" 
                       onClick={() => handleEditCourt(index)}
                       variant="outline"
+                      className="border-gray-300"
                     >
                       Edit
                     </Button>
@@ -123,7 +124,7 @@ export default function CourtNamingStep({
                       size="sm" 
                       onClick={() => handleResetToDefault(index)}
                       variant="ghost"
-                      className="text-muted-foreground"
+                      className="text-gray-500 hover:text-gray-700"
                     >
                       Reset
                     </Button>
@@ -135,9 +136,9 @@ export default function CourtNamingStep({
         </div>
 
         {/* Tips Section */}
-        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-4">
-          <h4 className="font-semibold text-blue-300 mb-2">💡 Naming Tips:</h4>
-          <ul className="text-sm text-muted-foreground space-y-1">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-semibold text-blue-800 mb-2">💡 Naming Tips:</h4>
+          <ul className="text-sm text-gray-700 space-y-1">
             <li>• <strong>Court 1</strong> is your main court - perfect for "Winners Court"</li>
             <li>• Use <strong>sponsored names</strong> like "Coca-Cola Court"</li>
             <li>• Try <strong>descriptive names</strong> like "Garden Court" or "VIP Court"</li>
@@ -147,11 +148,11 @@ export default function CourtNamingStep({
 
         {/* Navigation */}
         <div className="flex justify-between pt-4">
-          <Button onClick={onBack} variant="outline">
+          <Button onClick={onBack} variant="outline" className="border-gray-300">
             ← Back
           </Button>
-          <Button onClick={onNext} className="bg-blue-600 hover:bg-blue-700">
-            Next: Add Players →
+          <Button onClick={onNext} style={{ backgroundColor: '#0172fb' }} className="hover:opacity-90 text-white">
+            Next: Wildcard Config →
           </Button>
         </div>
       </CardContent>

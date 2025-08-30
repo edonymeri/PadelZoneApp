@@ -92,12 +92,12 @@ export default function PlayerAssignmentStep({
   }
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
+    <Card className="border-2 border-gray-200 shadow-lg bg-white w-full">
       <CardHeader>
-        <CardTitle className="text-center text-2xl font-bold">
+        <CardTitle className="text-center text-2xl font-bold text-gray-900">
           👥 Add Players to Event
         </CardTitle>
-        <p className="text-center text-muted-foreground">
+        <p className="text-center text-gray-600">
           Select players from your club to participate in this event.
         </p>
       </CardHeader>
@@ -109,14 +109,14 @@ export default function PlayerAssignmentStep({
               placeholder="Search players..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
+              className="w-full bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
             />
           </div>
           <div className="flex gap-2">
-            <Button onClick={handleSelectAll} variant="outline" size="sm">
+            <Button onClick={handleSelectAll} variant="outline" size="sm" className="border-gray-300">
               Select All
             </Button>
-            <Button onClick={handleClearAll} variant="outline" size="sm">
+            <Button onClick={handleClearAll} variant="outline" size="sm" className="border-gray-300">
               Clear All
             </Button>
           </div>
@@ -124,7 +124,7 @@ export default function PlayerAssignmentStep({
 
         {/* Player Count */}
         <div className="text-center">
-          <Badge variant="secondary" className="text-lg px-4 py-2">
+          <Badge variant="secondary" className="text-lg px-4 py-2 bg-blue-100 text-blue-800 border-blue-200">
             {selectedPlayers.length} player{selectedPlayers.length !== 1 ? 's' : ''} selected
           </Badge>
         </div>
@@ -138,10 +138,10 @@ export default function PlayerAssignmentStep({
             return (
               <div
                 key={player.id}
-                className={`flex items-center gap-4 p-4 border rounded-lg cursor-pointer transition-all ${
+                className={`flex items-center gap-4 p-4 border-2 rounded-lg cursor-pointer transition-all ${
                   isSelected 
-                    ? 'bg-blue-500/10 border-blue-500/30' 
-                    : 'bg-background/50 hover:bg-background/80'
+                    ? 'bg-blue-50 border-blue-300' 
+                    : 'bg-white border-gray-200 hover:bg-gray-50'
                 }`}
                 onClick={() => handlePlayerToggle(player.id)}
               >
@@ -153,17 +153,17 @@ export default function PlayerAssignmentStep({
                 
                 <div className="flex-1">
                   <div className="flex items-center gap-3">
-                    <span className="font-medium text-lg">{player.full_name}</span>
-                    <Badge variant="outline" className="text-xs">
+                    <span className="font-medium text-lg text-gray-900">{player.full_name}</span>
+                    <Badge variant="outline" className="text-xs border-gray-300 text-gray-700">
                       ELO: {player.elo}
                     </Badge>
-                    <Badge className={`text-xs ${skillLevel.color}`}>
+                    <Badge className={`text-xs text-white ${skillLevel.color}`}>
                       {skillLevel.label}
                     </Badge>
                   </div>
                 </div>
 
-                <div className="text-right text-sm text-muted-foreground">
+                <div className="text-right text-sm text-gray-600">
                   {isSelected ? '✓ Selected' : 'Click to select'}
                 </div>
               </div>
@@ -173,15 +173,15 @@ export default function PlayerAssignmentStep({
 
         {/* Empty State */}
         {filteredPlayers.length === 0 && (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-gray-500">
             {searchTerm ? 'No players found matching your search.' : 'No players in your club yet.'}
           </div>
         )}
 
         {/* Validation */}
         {selectedPlayers.length < 4 && (
-          <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-4">
-            <p className="text-yellow-300 text-sm">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p className="text-yellow-800 text-sm">
               ⚠️ You need at least 4 players to start an event. Currently selected: {selectedPlayers.length}
             </p>
           </div>
@@ -189,13 +189,14 @@ export default function PlayerAssignmentStep({
 
         {/* Navigation */}
         <div className="flex justify-between pt-4">
-          <Button onClick={onBack} variant="outline">
+          <Button onClick={onBack} variant="outline" className="border-gray-300">
             ← Back
           </Button>
           <Button 
             onClick={onNext} 
             disabled={selectedPlayers.length < 4}
-            className="bg-blue-600 hover:bg-blue-700"
+            style={{ backgroundColor: '#0172fb' }}
+            className="hover:opacity-90 text-white disabled:opacity-50"
           >
             Next: Review Event →
           </Button>

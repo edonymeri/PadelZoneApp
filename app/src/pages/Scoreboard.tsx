@@ -609,8 +609,8 @@ export default function Scoreboard() {
                               </span>
                             )}
                           </div>
-                        </div>
                       </div>
+                    </div>
                       <div className="flex items-center gap-4 ml-4">
                         <div className="text-right">
                           <div className="text-lg font-semibold text-gray-900">{e.player_count || 0}</div>
@@ -644,7 +644,7 @@ export default function Scoreboard() {
                       <div className="flex items-center gap-3">
                         <span className="h-3 w-3 rounded-full bg-green-500"></span>
                         <h2 className="text-lg font-semibold text-gray-900">Active Events</h2>
-                      </div>
+                        </div>
                       <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                         {active.length}
                       </span>
@@ -663,7 +663,7 @@ export default function Scoreboard() {
                       <div className="flex items-center gap-3">
                         <span className="h-3 w-3 rounded-full bg-red-500"></span>
                         <h2 className="text-lg font-semibold text-gray-900">Completed Events</h2>
-                      </div>
+                        </div>
                       <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
                         {completed.length}
                       </span>
@@ -871,8 +871,8 @@ export default function Scoreboard() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center">
                 <div className="text-3xl font-bold text-amber-600 mb-1">{courts.length}</div>
                 <div className="text-sm text-gray-600">Active Matches</div>
-              </div>
-            </div>
+          </div>
+        </div>
 
             {/* Round Navigation and Title */}
             <RoundNav
@@ -891,15 +891,15 @@ export default function Scoreboard() {
         {/* Courts grid - Only show in normal mode */}
         {!tvMode && (
           <>
-            {loading ? (
+        {loading ? (
               <div className="py-16 text-center text-gray-500">Loading…</div>
-            ) : errorMsg ? (
+        ) : errorMsg ? (
               <div className="py-16 text-center text-red-600">{errorMsg}</div>
             ) : (isViewingHistorical ? historicalCourts : courts).length === 0 ? (
               <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
                 <p className="text-gray-500">No matches in this round yet.</p>
-              </div>
-            ) : (
+          </div>
+        ) : (
               <div className="grid lg:grid-cols-2 gap-6">
             {(isViewingHistorical ? historicalCourts : courts).map((ct) => {
               const teamAScore = ct.scoreA ?? 0;
@@ -949,20 +949,20 @@ export default function Scoreboard() {
                           {players[ct.teamA[1]]?.full_name || 'Player 2'}
                         </div>
                       </div>
-                    </div>
+                </div>
                     <div className="text-center text-gray-400 text-xl font-bold">VS</div>
                     <div className="text-center">
                       <div className="font-medium text-sm text-gray-500 mb-2">Team B</div>
                       <div className="space-y-1">
                         <div className="text-sm font-medium text-gray-900 truncate">
                           {players[ct.teamB[0]]?.full_name || 'Player 1'}
-                        </div>
+                  </div>
                         <div className="text-sm font-medium text-gray-900 truncate">
                           {players[ct.teamB[1]]?.full_name || 'Player 2'}
-                        </div>
-                      </div>
-                </div>
                   </div>
+                </div>
+                </div>
+              </div>
                   
                   <div className="text-center">
                     <div className="text-6xl font-bold mb-2">
@@ -977,7 +977,7 @@ export default function Scoreboard() {
                     {!hasScore && (
                       <div className="text-sm text-gray-500">
                         Match not started
-                      </div>
+          </div>
                     )}
                   </div>
                 </div>

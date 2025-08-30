@@ -110,10 +110,10 @@ export default function PlayersPage() {
           console.warn("Error loading players with groups, falling back to basic query:", error);
           // Fallback to basic players query
           const { data: basicPlayers, error: basicError } = await supabase
-            .from("players")
-            .select("id, full_name, elo, club_id")
-            .eq("club_id", clubId)
-            .order("full_name");
+          .from("players")
+          .select("id, full_name, elo, club_id")
+          .eq("club_id", clubId)
+          .order("full_name");
           if (basicError) throw basicError;
           playersData = basicPlayers || [];
           console.log("Basic players data:", playersData);
@@ -433,8 +433,8 @@ export default function PlayersPage() {
                     onFocus={(e) => e.currentTarget.style.borderColor = '#0172fb'}
                     onBlur={(e) => e.currentTarget.style.borderColor = '#9CA3AF'}
                   />
-                </div>
-              </div>
+          </div>
+        </div>
 
               {/* Group Filter */}
               <div className="flex-1">
@@ -458,7 +458,7 @@ export default function PlayersPage() {
                     </option>
                   ))}
                 </select>
-              </div>
+            </div>
 
               {/* Add Player */}
               <div className="flex-1">
@@ -514,9 +514,9 @@ export default function PlayersPage() {
                   >
                     <UserPlus className="w-4 h-4 mr-2" />
                     Add Player
-                  </Button>
-                  </div>
-                </div>
+            </Button>
+          </div>
+      </div>
 
               {/* Sort Controls */}
               <div className="lg:w-72">
@@ -676,13 +676,13 @@ export default function PlayersPage() {
           </Card>
         )}
 
-        {loading ? (
+      {loading ? (
           <div className="space-y-4">
             {Array.from({ length: 6 }).map((_, i) => (
               <PlayerCardSkeleton key={i} />
             ))}
           </div>
-        ) : filtered.length === 0 ? (
+      ) : filtered.length === 0 ? (
           <Card>
             <CardContent className="p-12">
               <EmptyState
@@ -703,21 +703,21 @@ export default function PlayersPage() {
         ) : (
           <div className="grid gap-4">
             {filtered.map((p, index) => {
-              const isIn = eventId ? inEvent.has(p.id) : false;
+            const isIn = eventId ? inEvent.has(p.id) : false;
               const skillLevel = p.elo >= 1500 ? 'Expert' : p.elo >= 1200 ? 'Advanced' : p.elo >= 1000 ? 'Intermediate' : 'Beginner';
               const skillColor = p.elo >= 1500 ? 'text-purple-600' : p.elo >= 1200 ? 'text-blue-600' : p.elo >= 1000 ? 'text-green-600' : 'text-amber-600';
               const isTopPlayer = index < 3 && sortBy === 'elo' && sortOrder === 'desc';
               
-              return (
+            return (
                 <Card
-                  key={p.id}
+                key={p.id}
                   className={`transition-all duration-200 hover:shadow-xl hover:scale-[1.01] cursor-pointer bg-white border-2 shadow-md ${
                     isIn ? 'bg-blue-50' : 'hover:shadow-blue-100'
                   } ${isTopPlayer ? 'bg-gradient-to-r from-yellow-50 to-amber-50' : ''}`}
                   style={{
                     borderColor: isIn ? '#0172fb' : isTopPlayer ? '#f59e0b' : '#e5e7eb'
                   }}
-                  onClick={() => eventId && !saving ? toggleInEvent(p.id) : undefined}
+                onClick={() => eventId && !saving ? toggleInEvent(p.id) : undefined}
                 >
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between">
@@ -790,18 +790,18 @@ export default function PlayersPage() {
                               <span className="font-bold text-gray-800">{p.total_points || 0}</span>
                             </div>
                           </div>
-                        </div>
-                      </div>
+                  </div>
+                </div>
 
                       {/* Action Buttons */}
                       <div className="flex items-center gap-3 ml-4">
-                        <Button
+                  <Button
                           variant="outline"
-                          size="sm"
-                          asChild
-                          onClick={(e) => e.stopPropagation()}
+                    size="sm"
+                    asChild
+                    onClick={(e) => e.stopPropagation()}
                           className="border-gray-400 text-gray-800 hover:bg-gray-100 font-semibold shadow-sm"
-                        >
+                  >
                           <Link to={`/player/${p.id}`}>View Profile</Link>
                   </Button>
 

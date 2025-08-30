@@ -54,10 +54,10 @@ const BasicEventForm = ({
   handleCancelCreation: () => void;
 }) => {
   return (
-    <Card className="border-border/70">
+    <Card className="border-2 border-gray-200 shadow-lg bg-white w-full">
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">Step 1: Event Basics</CardTitle>
-        <p className="text-xs text-muted-foreground mt-1">
+        <CardTitle className="text-xl font-bold text-gray-900">Step 1: Event Basics</CardTitle>
+        <p className="text-sm text-gray-600 mt-1">
           Set your event name, format, and courts. You'll name courts and add players next.
         </p>
       </CardHeader>
@@ -66,24 +66,26 @@ const BasicEventForm = ({
           {/* Name + Courts */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="ev-name">Event name</Label>
-              <Input
-                id="ev-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Mexicano Night — Thu"
-              />
+              <Label htmlFor="ev-name" className="text-sm font-medium text-gray-700">Event name</Label>
+                              <Input
+                  id="ev-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Mexicano Night — Thu"
+                  className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ev-courts">Courts</Label>
-              <Input
-                id="ev-courts"
-                type="number"
-                min={1}
-                value={courts}
-                onChange={(e) => setCourts(Number(e.target.value) || 1)}
-              />
-              <div className="text-xs text-muted-foreground">
+              <Label htmlFor="ev-courts" className="text-sm font-medium text-gray-700">Courts</Label>
+                              <Input
+                  id="ev-courts"
+                  type="number"
+                  min={1}
+                  value={courts}
+                  onChange={(e) => setCourts(Number(e.target.value) || 1)}
+                  className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                />
+              <div className="text-xs text-gray-600">
                 You'll need <span className="font-semibold">{requiredPlayers}</span> players for {courts} courts.
               </div>
             </div>
@@ -93,26 +95,30 @@ const BasicEventForm = ({
 
           {/* Mode selection */}
           <div className="space-y-3">
-            <Label className="block">Format</Label>
-            <div className="w-full max-w-[420px] segment">
-              <div className="flex gap-1">
-                <button
-                  type="button"
-                  className="segment-btn"
-                  aria-pressed={mode === "points"}
-                  onClick={() => setMode("points")}
-                >
-                  Points
-                </button>
-                <button
-                  type="button"
-                  className="segment-btn"
-                  aria-pressed={mode === "time"}
-                  onClick={() => setMode("time")}
-                >
-                  Time
-                </button>
-              </div>
+            <Label className="block text-sm font-medium text-gray-700">Format</Label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  mode === "points"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                onClick={() => setMode("points")}
+              >
+                Points
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  mode === "time"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                onClick={() => setMode("time")}
+              >
+                Time
+              </button>
             </div>
           </div>
 
@@ -122,15 +128,16 @@ const BasicEventForm = ({
               {/* Points per game */}
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="ev-ppg">Points per game</Label>
+                  <Label htmlFor="ev-ppg" className="text-sm font-medium text-gray-700">Points per game</Label>
                   <Input
                     id="ev-ppg"
                     type="number"
                     min={10}
                     value={ppg}
                     onChange={(e) => setPPG(Number(e.target.value) || 0)}
+                    className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
                   />
-                  <div className="text-xs text-muted-foreground">
+                  <div className="text-xs text-gray-600">
                     Typical: 21 (also 24, 28, 32)
                   </div>
                 </div>
@@ -138,7 +145,7 @@ const BasicEventForm = ({
 
               {/* Round and Time Limits */}
               <div className="space-y-3">
-                <Label className="block">Event Limits (Optional)</Label>
+                <Label className="block text-sm font-medium text-gray-700">Event Limits (Optional)</Label>
                 
                 {/* Round Limit */}
                 <div className="flex items-center space-x-2">
@@ -146,22 +153,24 @@ const BasicEventForm = ({
                     id="use-round-limit"
                     checked={useRoundLimit}
                     onCheckedChange={setUseRoundLimit}
+                    className="data-[state=checked]:bg-blue-600"
                   />
-                  <Label htmlFor="use-round-limit">Limit total rounds</Label>
+                  <Label htmlFor="use-round-limit" className="text-sm text-gray-700">Limit total rounds</Label>
                 </div>
                 
                 {useRoundLimit && (
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="ev-max-rounds">Max rounds</Label>
+                      <Label htmlFor="ev-max-rounds" className="text-sm font-medium text-gray-700">Max rounds</Label>
                       <Input
                         id="ev-max-rounds"
                         type="number"
                         min={1}
                         value={maxRounds}
                         onChange={(e) => setMaxRounds(Number(e.target.value) || 0)}
+                        className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
                       />
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-gray-600">
                         Event ends after this many rounds
                       </div>
                     </div>
@@ -174,14 +183,15 @@ const BasicEventForm = ({
                     id="use-time-limit"
                     checked={useTimeLimit}
                     onCheckedChange={setUseTimeLimit}
+                    className="data-[state=checked]:bg-blue-600"
                   />
-                  <Label htmlFor="use-time-limit">Limit total time</Label>
+                  <Label htmlFor="use-time-limit" className="text-sm text-gray-700">Limit total time</Label>
                 </div>
                 
                 {useTimeLimit && (
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="ev-duration">Event duration (hours)</Label>
+                      <Label htmlFor="ev-duration" className="text-sm font-medium text-gray-700">Event duration (hours)</Label>
                       <Input
                         id="ev-duration"
                         type="number"
@@ -189,8 +199,9 @@ const BasicEventForm = ({
                         max={24}
                         value={eventDurationHours}
                         onChange={(e) => setEventDurationHours(Number(e.target.value) || 0)}
+                        className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
                       />
-                      <div className="text-xs text-muted-foreground">
+                      <div className="text-xs text-gray-600">
                         Event ends after this time
                       </div>
                     </div>
@@ -201,27 +212,29 @@ const BasicEventForm = ({
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="ev-min">Round minutes</Label>
+                <Label htmlFor="ev-min" className="text-sm font-medium text-gray-700">Round minutes</Label>
                 <Input
                   id="ev-min"
                   type="number"
                   min={1}
                   value={roundMinutes}
                   onChange={(e) => setRoundMinutes(Number(e.target.value) || 0)}
+                  className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
                 />
-                <div className="text-xs text-muted-foreground">Score freezes when time is up.</div>
+                <div className="text-xs text-gray-600">Score freezes when time is up.</div>
               </div>
             </div>
           )}
 
           <div className="flex justify-between pt-4">
-            <Button onClick={handleCancelCreation} variant="outline">
+            <Button onClick={handleCancelCreation} variant="outline" className="border-gray-300">
               Cancel
             </Button>
             <Button
               onClick={handleNextStep}
               disabled={!clubId}
-              className="bg-blue-600 hover:bg-blue-700"
+              style={{ backgroundColor: '#0172fb' }}
+              className="hover:opacity-90 text-white"
             >
               Next: Name Courts →
             </Button>
@@ -301,8 +314,16 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
     }
   }, [creationStep, clubId]);
 
+  // Scroll to top when step changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [creationStep]);
+
   // Multi-step navigation
   const handleNextStep = () => {
+    // Scroll to top when changing steps
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     switch (creationStep) {
       case "basic":
         if (!name.trim()) {
@@ -348,6 +369,9 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
   };
 
   const handleBackStep = () => {
+    // Scroll to top when changing steps
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
     switch (creationStep) {
       case "courts":
         setCreationStep("basic");
@@ -459,7 +483,7 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full max-w-4xl mx-auto px-4 py-6">
       {creationStep === "basic" && (
         <BasicEventForm
           name={name}

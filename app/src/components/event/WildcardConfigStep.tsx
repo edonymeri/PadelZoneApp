@@ -63,7 +63,7 @@ export default function WildcardConfigStep({
 }: WildcardConfigStepProps) {
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">🎲 Wildcard Configuration</h2>
         <p className="text-gray-600">
@@ -72,14 +72,14 @@ export default function WildcardConfigStep({
       </div>
 
       {/* Main Toggle */}
-      <Card className="border-2 border-dashed border-gray-200">
+      <Card className="border-2 border-gray-200 shadow-lg bg-white">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2">
+              <CardTitle className="flex items-center gap-2 text-gray-900 font-bold">
                 🎲 Enable Wildcard Rounds
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-gray-600">
                 Create surprise rounds that shake up the tournament hierarchy
               </CardDescription>
             </div>
@@ -95,9 +95,9 @@ export default function WildcardConfigStep({
           <CardContent className="space-y-6">
             {/* Start Round */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">When to start wildcards</Label>
+              <Label className="text-base font-semibold text-gray-900">When to start wildcards</Label>
               <Select value={wildcardStartRound.toString()} onValueChange={(value) => setWildcardStartRound(Number(value))}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -114,9 +114,9 @@ export default function WildcardConfigStep({
 
             {/* Frequency */}
             <div className="space-y-3">
-              <Label className="text-base font-semibold">Wildcard frequency</Label>
+              <Label className="text-base font-semibold text-gray-900">Wildcard frequency</Label>
               <Select value={wildcardFrequency.toString()} onValueChange={(value) => setWildcardFrequency(Number(value))}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="w-full bg-white border-gray-300 text-gray-900 focus:border-blue-500 focus:ring-blue-500">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -133,7 +133,7 @@ export default function WildcardConfigStep({
 
             {/* Intensity */}
             <div className="space-y-4">
-              <Label className="text-base font-semibold">Chaos intensity</Label>
+              <Label className="text-base font-semibold text-gray-900">Chaos intensity</Label>
               <div className="grid grid-cols-1 gap-3">
                 {Object.entries(intensityInfo).map(([intensity, info]) => {
                   const Icon = info.icon;
@@ -186,15 +186,16 @@ export default function WildcardConfigStep({
 
       {/* Navigation */}
       <div className="flex justify-between pt-4">
-        <Button variant="outline" onClick={onBack}>
-          Back
+        <Button variant="outline" onClick={onBack} className="border-gray-300">
+          ← Back
         </Button>
         <Button 
           onClick={onNext}
           disabled={!isValid}
-          className="bg-purple-600 hover:bg-purple-700"
+          style={{ backgroundColor: '#0172fb' }}
+          className="hover:opacity-90 text-white"
         >
-          {wildcardEnabled ? 'Next: Review & Create' : 'Skip Wildcards'}
+          {wildcardEnabled ? 'Next: Add Players →' : 'Skip: Add Players →'}
         </Button>
       </div>
     </div>
