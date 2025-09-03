@@ -63,11 +63,26 @@ export function getNextWildcardRound(roundNum: number, event: Event | Pick<Event
  * Applies wildcard shuffle to courts based on intensity
  */
 export function applyWildcardShuffle(courts: CourtMatch[], intensity: 'mild' | 'medium' | 'mayhem'): CourtMatch[] {
+  console.log('🎲 Starting wildcard shuffle with intensity:', intensity);
+  
   // Extract all players from all courts
   const allPlayers: UUID[] = courts.flatMap(court => [
     ...court.teamA,
     ...court.teamB
   ]);
+
+  // Validate input - no duplicates in original courts
+  const uniqueOriginalPlayers = new Set(allPlayers);
+  if (uniqueOriginalPlayers.size !== allPlayers.length) {
+    console.error('🚨 DUPLICATE PLAYER DETECTED in original courts:', {
+      allPlayers,
+      uniqueCount: uniqueOriginalPlayers.size,
+      totalCount: allPlayers.length
+    });
+    throw new Error('Duplicate player detected in original courts');
+  }
+
+  console.log('✅ Original courts validated - no duplicates');
 
   let newPlayers: UUID[];
 
@@ -94,15 +109,44 @@ export function applyWildcardShuffle(courts: CourtMatch[], intensity: 'mild' | '
   // Redistribute players back to courts (4 players per court)
   const newCourts: CourtMatch[] = courts.map((court, index) => {
     const startIndex = index * 4;
+    const teamA = [newPlayers[startIndex], newPlayers[startIndex + 1]];
+    const teamB = [newPlayers[startIndex + 2], newPlayers[startIndex + 3]];
+    
+    // Validate no duplicates within this court
+    const courtPlayers = [...teamA, ...teamB];
+    const uniquePlayers = new Set(courtPlayers);
+    if (uniquePlayers.size !== 4) {
+      console.error('🚨 DUPLICATE PLAYER DETECTED in court', index + 1, ':', {
+        teamA,
+        teamB,
+        courtPlayers,
+        uniqueCount: uniquePlayers.size
+      });
+      throw new Error(`Duplicate player detected in court ${index + 1}`);
+    }
+    
     return {
       ...court,
-      teamA: [newPlayers[startIndex], newPlayers[startIndex + 1]],
-      teamB: [newPlayers[startIndex + 2], newPlayers[startIndex + 3]],
+      teamA: teamA as [UUID, UUID],
+      teamB: teamB as [UUID, UUID],
       scoreA: undefined, // Reset scores for new matchups
       scoreB: undefined
     };
   });
 
+  // Validate no duplicates across all courts
+  const allShuffledPlayers = newCourts.flatMap(court => [...court.teamA, ...court.teamB]);
+  const uniqueAllShuffledPlayers = new Set(allShuffledPlayers);
+  if (uniqueAllShuffledPlayers.size !== allShuffledPlayers.length) {
+    console.error('🚨 DUPLICATE PLAYER DETECTED across all courts:', {
+      allShuffledPlayers,
+      uniqueCount: uniqueAllShuffledPlayers.size,
+      totalCount: allShuffledPlayers.length
+    });
+    throw new Error('Duplicate player detected across courts');
+  }
+
+  console.log('✅ Wildcard shuffle completed successfully - no duplicates');
   return newCourts;
 }
 
@@ -136,14 +180,18 @@ function mediumShuffle(players: UUID[]): UUID[] {
   const result = [...players];
   const shuffleCount = Math.floor(players.length * 0.5); // ~50% of players
   
-  // Create a list of players to shuffle
-  const playersToShuffle = [];
+  // Create a list of unique indices to shuffle
+  const availableIndices = Array.from({ length: players.length }, (_, i) => i);
   const indicesToShuffle = [];
+  const playersToShuffle = [];
   
+  // Select unique random indices
   for (let i = 0; i < shuffleCount; i++) {
-    const randomIndex = Math.floor(Math.random() * players.length);
-    playersToShuffle.push(result[randomIndex]);
-    indicesToShuffle.push(randomIndex);
+    if (availableIndices.length === 0) break;
+    const randomIndex = Math.floor(Math.random() * availableIndices.length);
+    const selectedIndex = availableIndices.splice(randomIndex, 1)[0];
+    indicesToShuffle.push(selectedIndex);
+    playersToShuffle.push(result[selectedIndex]);
   }
   
   // Shuffle the selected players

@@ -75,11 +75,18 @@ export function Nightly({ eventId, players }: NightlyProps) {
           const { data: ms, error: mErr } = await supabase
             .from("matches")
             .select("round_id,court_num,team_a_player1,team_a_player2,team_b_player1,team_b_player2,score_a,score_b")
-            .in("round_id", roundIds);
+            .in("round_id", roundIds)
+            .not("score_a", "is", null)
+            .not("score_b", "is", null);
           if (mErr) throw mErr;
 
           const wl: Record<string, { won: number; lost: number; pf: number; pa: number }> = {};
           (ms || []).forEach((m: any) => {
+            // Skip matches without scores (defensive check)
+            if (m.score_a === null || m.score_b === null) {
+              return;
+            }
+            
             const A = [m.team_a_player1, m.team_a_player2].filter(Boolean);
             const B = [m.team_b_player1, m.team_b_player2].filter(Boolean);
             const a = m.score_a ?? 0;
@@ -130,7 +137,8 @@ export function Nightly({ eventId, players }: NightlyProps) {
       const score = scoreByPlayer[pid] ?? 0;
       const wl = wlByPlayer[pid] || { won: 0, lost: 0, pf: 0, pa: 0 };
       const diff = wl.pf - wl.pa;
-      return { pid, name, score, won: wl.won, lost: wl.lost, diff };
+      const gamesPlayed = wl.won + wl.lost;
+      return { pid, name, score, gamesPlayed, won: wl.won, lost: wl.lost, diff };
     });
     // sort by Score desc, then diff desc, then name
     out.sort((a, b) => (b.score - a.score) || (b.diff - a.diff) || a.name.localeCompare(b.name));
@@ -150,6 +158,7 @@ export function Nightly({ eventId, players }: NightlyProps) {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className="px-4 py-3 text-left text-sm font-bold text-gray-900">Player</th>
+              <th className="px-3 py-3 text-center text-sm font-bold text-gray-900">Games</th>
               <th className="px-3 py-3 text-center text-sm font-bold text-gray-900">Won</th>
               <th className="px-3 py-3 text-center text-sm font-bold text-gray-900">Lost</th>
               <th className="px-3 py-3 text-center text-sm font-bold text-gray-900">±</th>
@@ -173,6 +182,11 @@ export function Nightly({ eventId, players }: NightlyProps) {
                       {r.name}
                     </Link>
                   </div>
+                </td>
+                <td className="px-3 py-3 text-center">
+                  <span className="text-lg font-bold text-gray-700">
+                    {r.gamesPlayed}
+                  </span>
                 </td>
                 <td className="px-3 py-3 text-center">
                   <span className="text-lg font-bold text-green-600">

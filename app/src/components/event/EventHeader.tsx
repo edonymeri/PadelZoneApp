@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, History, Users } from "lucide-react";
+import { ChevronLeft, ChevronRight, History, Users, Trophy } from "lucide-react";
 
 interface EventHeaderProps {
   meta: {
@@ -87,6 +87,14 @@ export default function EventHeader({
                   <Link to={`/players?eventId=${eventId}`} className="flex items-center justify-center">
                     <Users className="w-4 h-4 mr-1" />
                     Players
+                  </Link>
+                </Button>
+              )}
+              {eventId && (
+                <Button asChild variant="outline" size="sm" className="border-gray-300 flex-1">
+                  <Link to={`/scoreboard/${eventId}`} className="flex items-center justify-center">
+                    <Trophy className="w-4 h-4 mr-1" />
+                    Scoreboard
                   </Link>
                 </Button>
               )}
@@ -199,6 +207,14 @@ export default function EventHeader({
               </div>
             )}
             
+            {eventId && (
+              <Button asChild variant="outline" className="border-gray-300 hover-scale transition-transform-smooth">
+                <Link to={`/scoreboard/${eventId}`}>
+                  <Trophy className="w-4 h-4 mr-2" />
+                  Scoreboard
+                </Link>
+              </Button>
+            )}
             {eventId && (
               <Button asChild variant="outline" className="border-gray-300 hover-scale transition-transform-smooth">
                 <Link to={`/players?eventId=${eventId}`}>

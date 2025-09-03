@@ -2,10 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
+import { determineEventWinners } from "@/lib/scoring";
 import type { CourtMatch, UUID } from "@/lib/types";
-import { Monitor, MonitorX, Trophy, Users, ChevronLeft, ChevronRight } from "lucide-react";
+import { Monitor, MonitorX, Trophy, Users, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import RoundNav from "@/components/scoreboard/RoundNav";
 import LeaderboardTable from "@/components/scoreboard/LeaderboardTable";
+import EventWinners from "@/components/event/EventWinners";
 
 
 type Player = { id: UUID; full_name: string; elo: number };
@@ -36,6 +38,7 @@ export default function Scoreboard() {
   const [sortBy, setSortBy] = useState<"recent" | "name" | "players" | "courts">("recent");
   const [tvMode, setTvMode] = useState<boolean>(false);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
+  const [eventWinners, setEventWinners] = useState<any>(null);
   
   // Round navigation state
   const [viewingRoundNum, setViewingRoundNum] = useState<number>(1);
@@ -207,12 +210,19 @@ export default function Scoreboard() {
     };
   }, [eventId]);
 
-  // Load leaderboard when TV mode is enabled
+  // Load leaderboard when event loads and refresh periodically
   useEffect(() => {
-    if (eventId && tvMode) {
+    if (eventId) {
       loadLeaderboard(eventId);
+      
+      // Set up periodic refresh every 3 seconds
+      const interval = setInterval(() => {
+        loadLeaderboard(eventId);
+      }, 3000);
+      
+      return () => clearInterval(interval);
     }
-  }, [eventId, tvMode]);
+  }, [eventId]);
 
   // Update viewing round when current round changes
   useEffect(() => {
@@ -267,6 +277,14 @@ export default function Scoreboard() {
     try {
       console.log("Loading leaderboard for event:", eid);
       
+      // Get ALL event players first
+      const { data: eventPlayers, error: eventPlayersError } = await supabase
+        .from("event_players")
+        .select("players!inner(id, full_name, elo)")
+        .eq("event_id", eid);
+      
+      if (eventPlayersError) throw eventPlayersError;
+      
       // Get scoring data and match results
       const [scoresResult, matchesResult] = await Promise.all([
         // Get round points
@@ -282,7 +300,7 @@ export default function Scoreboard() {
           `)
           .eq("event_id", eid),
         
-        // Get match results to calculate wins/losses
+        // Get ONLY COMPLETED match results (with scores) to calculate wins/losses
         supabase
           .from("matches")
           .select(`
@@ -306,7 +324,7 @@ export default function Scoreboard() {
       console.log("Raw scores data:", scoresResult.data);
       console.log("Raw matches data:", matchesResult.data);
 
-      // Calculate detailed stats per player
+      // Calculate detailed stats per player - START WITH ALL EVENT PLAYERS
       const playerStats = new Map<string, {
         player_id: string;
         full_name: string;
@@ -320,31 +338,41 @@ export default function Scoreboard() {
         goal_difference: number;
       }>();
 
-      // Process scoring data
+      // Initialize ALL event players with 0 stats
+      (eventPlayers || []).forEach((ep: any) => {
+        const playerId = ep.players.id;
+        playerStats.set(playerId, {
+          player_id: playerId,
+          full_name: ep.players.full_name,
+          elo: ep.players.elo,
+          total_score: 0,  // Start at 0
+          games_played: 0,  // Start at 0
+          games_won: 0,      // Start at 0
+          games_lost: 0,     // Start at 0
+          goals_for: 0,      // Start at 0
+          goals_against: 0,  // Start at 0
+          goal_difference: 0, // Start at 0
+        });
+      });
+
+      // Process scoring data - ADD points to existing players
       (scoresResult.data || []).forEach((score: any) => {
         const playerId = score.player_id;
         if (playerStats.has(playerId)) {
           const existing = playerStats.get(playerId)!;
           existing.total_score += score.points;
-          existing.games_played += 1;
-        } else {
-          playerStats.set(playerId, {
-            player_id: playerId,
-            full_name: score.players.full_name,
-            elo: score.players.elo,
-            total_score: score.points,
-            games_played: 1,
-            games_won: 0,
-            games_lost: 0,
-            goals_for: 0,
-            goals_against: 0,
-            goal_difference: 0,
-          });
+          // Don't increment games_played here - it should only come from matches
         }
       });
 
-      // Process match results for wins/losses and goal difference
+      // Process ONLY COMPLETED match results for wins/losses and goal difference
       (matchesResult.data || []).forEach((match: any) => {
+        // Double-check that scores exist (defensive programming)
+        if (match.score_a === null || match.score_b === null) {
+          console.log("Skipping unplayed match:", match);
+          return;
+        }
+        
         const teamAWon = match.score_a > match.score_b;
         const scoreA = match.score_a || 0;
         const scoreB = match.score_b || 0;
@@ -353,6 +381,7 @@ export default function Scoreboard() {
         [match.team_a_player1, match.team_a_player2].forEach(playerId => {
           if (playerStats.has(playerId)) {
             const player = playerStats.get(playerId)!;
+            player.games_played += 1;  // ✅ Count games from matches only
             player.goals_for += scoreA;
             player.goals_against += scoreB;
             if (teamAWon) {
@@ -367,6 +396,7 @@ export default function Scoreboard() {
         [match.team_b_player1, match.team_b_player2].forEach(playerId => {
           if (playerStats.has(playerId)) {
             const player = playerStats.get(playerId)!;
+            player.games_played += 1;  // ✅ Count games from matches only
             player.goals_for += scoreB;
             player.goals_against += scoreA;
             if (!teamAWon) {
@@ -383,13 +413,19 @@ export default function Scoreboard() {
         player.goal_difference = player.goals_for - player.goals_against;
       });
 
+      // Determine event winners
+      const allPlayers = Array.from(playerStats.values());
+      const winners = determineEventWinners(allPlayers);
+
       // Convert to array and sort by total score
-      const leaderboardData = Array.from(playerStats.values())
+      const leaderboardData = allPlayers
         .sort((a, b) => b.total_score - a.total_score)
-        .slice(0, 10);
+        .slice(0, 20);
 
       console.log("Final leaderboard data:", leaderboardData);
+      console.log("Event winners:", winners);
       setLeaderboard(leaderboardData);
+      setEventWinners(winners);
     } catch (err) {
       console.warn("Failed to load leaderboard:", err);
       setLeaderboard([]);
@@ -688,8 +724,8 @@ export default function Scoreboard() {
   
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className={tvMode ? "w-full min-h-screen px-6 py-4" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}>
+    <div className={tvMode ? "w-screen h-screen bg-gray-50" : "min-h-screen bg-gray-50"}>
+      <div className={tvMode ? "w-full h-full p-4" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}>
         {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-start justify-between gap-4">
@@ -727,33 +763,43 @@ export default function Scoreboard() {
                 {tvMode ? <MonitorX size={18} /> : <Monitor size={18} />}
                 {tvMode ? "Exit TV Mode" : "TV Mode"}
               </button>
+              <Link
+                to={`/event/${eventId}`}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
+              >
+                <Settings size={18} />
+                Event Control
+              </Link>
             </div>
           </div>
         </div>
 
         {tvMode ? (
-          /* TV MODE LAYOUT */
-          <div className="space-y-8">
-            {/* Round Navigation and Title - Large for TV */}
-            <RoundNav
-              viewingRoundNum={viewingRoundNum}
-              currentRoundNum={roundNum}
-              loadingHistorical={loadingHistorical}
-              isViewingHistorical={isViewingHistorical}
-              matchCount={(isViewingHistorical ? historicalCourts : courts).length}
-              allRounds={allRounds}
-              onChange={handleRoundChange}
-              variant="tv"
-            />
+          /* TV MODE LAYOUT - FULL SCREEN */
+          <div className="h-full flex flex-col">
+            {/* Round Navigation - Very Compact for TV */}
+            <div className="mb-2">
+              <RoundNav
+                viewingRoundNum={viewingRoundNum}
+                currentRoundNum={roundNum}
+                loadingHistorical={loadingHistorical}
+                isViewingHistorical={isViewingHistorical}
+                matchCount={(isViewingHistorical ? historicalCourts : courts).length}
+                allRounds={allRounds}
+                onChange={handleRoundChange}
+                variant="tv"
+              />
+            </div>
 
-            <div className="grid grid-cols-3 gap-8">
-              {/* Court Cards - Left Side (2 columns) */}
-              <div className="col-span-2">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+            {/* Main Content - Full Height */}
+            <div className="flex-1 flex gap-6">
+              {/* Court Cards - Left Side (Full Width) */}
+              <div className="flex-1">
+                <h2 className="text-3xl font-bold text-gray-900 mb-4 flex items-center gap-3">
                   <Users className="text-blue-600" size={32} />
                   Current Matches
                 </h2>
-                <div className="grid grid-cols-2 gap-6">
+                <div className="grid grid-cols-2 gap-4 h-full">
                   {(isViewingHistorical ? historicalCourts : courts).slice(0, 4).map((ct) => {
                     const teamAScore = ct.scoreA ?? 0;
                     const teamBScore = ct.scoreB ?? 0;
@@ -765,21 +811,21 @@ export default function Scoreboard() {
                     return (
                       <div
                         key={ct.court_num}
-                        className={`rounded-2xl shadow-lg border-2 p-6 transition-all duration-300 ${
+                        className={`rounded-2xl shadow-lg border-2 p-4 transition-all duration-300 ${
                           isWinnersCourt 
                             ? "border-blue-400 bg-blue-50 shadow-blue-200/50" 
                             : "bg-white border-gray-200 hover:shadow-xl"
                         }`}
                       >
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-3">
                           <h3 className="text-2xl font-bold text-gray-900">
                             Court {ct.court_num}
                             {isWinnersCourt && (
-                              <span className="ml-2 text-blue-600 text-lg">👑</span>
+                              <span className="ml-2 text-blue-600 text-xl">👑</span>
                             )}
                           </h3>
                           {hasScore && (
-                            <div className={`text-sm px-3 py-1 rounded-full font-bold ${
+                            <div className={`text-sm px-2 py-1 rounded-full font-bold ${
                               teamAWinning 
                                 ? "bg-green-100 text-green-800 border border-green-300"
                                 : teamBWinning
@@ -791,9 +837,9 @@ export default function Scoreboard() {
                           )}
                         </div>
                         
-                        <div className="grid grid-cols-3 items-center gap-4 mb-6">
+                        <div className="grid grid-cols-3 items-center gap-3 mb-4">
                           <div className="text-center">
-                            <div className="font-bold text-lg text-gray-700 mb-2">Team A</div>
+                            <div className="font-bold text-lg text-gray-700 mb-1">Team A</div>
                             <div className="space-y-1">
                               <div className="text-lg font-semibold text-gray-900 truncate">
                                 {players[ct.teamA[0]]?.full_name || 'Player 1'}
@@ -803,9 +849,9 @@ export default function Scoreboard() {
                               </div>
                             </div>
                           </div>
-                          <div className="text-center text-gray-400 text-3xl font-bold">VS</div>
+                          <div className="text-center text-gray-400 text-2xl font-bold">VS</div>
                           <div className="text-center">
-                            <div className="font-bold text-lg text-gray-700 mb-2">Team B</div>
+                            <div className="font-bold text-lg text-gray-700 mb-1">Team B</div>
                             <div className="space-y-1">
                               <div className="text-lg font-semibold text-gray-900 truncate">
                                 {players[ct.teamB[0]]?.full_name || 'Player 1'}
@@ -818,7 +864,7 @@ export default function Scoreboard() {
                         </div>
                         
                         <div className="text-center">
-                          <div className="text-5xl font-bold mb-2">
+                          <div className="text-4xl font-bold mb-2">
                             <span className={teamAWinning ? "text-green-600" : "text-gray-700"}>
                               {teamAScore}
                             </span>
@@ -839,13 +885,22 @@ export default function Scoreboard() {
                 </div>
               </div>
 
-              {/* Leaderboard - Right Side (1 column) */}
-              <div className="col-span-1">
-                <h2 className="text-3xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                  <Trophy className="text-yellow-600" size={32} />
-                  Live Rankings
+              {/* Leaderboard - Right Side */}
+              <div className="w-80 h-full flex flex-col">
+                <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                  <Trophy className="text-yellow-600" size={28} />
+                  {meta?.ended_at ? "Final Rankings" : "Live Rankings"}
                 </h2>
-                <LeaderboardTable rows={leaderboard as any} />
+                <div className="flex-1 overflow-hidden">
+                  <LeaderboardTable rows={leaderboard as any} />
+                </div>
+                
+                {/* Event Winners - Only show in TV mode when event has ended */}
+                {eventWinners && meta?.ended_at && (
+                  <div className="mt-8">
+                    <EventWinners winners={eventWinners} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -885,108 +940,124 @@ export default function Scoreboard() {
               onChange={handleRoundChange}
               variant="normal"
             />
+
+            {/* Event Winners - Only show when event has ended */}
+            {eventWinners && meta?.ended_at && (
+              <EventWinners winners={eventWinners} />
+            )}
+
+            {/* Courts grid - Show match cards first */}
+            {!tvMode && (
+              <>
+                {loading ? (
+                  <div className="py-16 text-center text-gray-500">Loading…</div>
+                ) : errorMsg ? (
+                  <div className="py-16 text-center text-red-600">{errorMsg}</div>
+                ) : (isViewingHistorical ? historicalCourts : courts).length === 0 ? (
+                  <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                    <p className="text-gray-500">No matches in this round yet.</p>
+                  </div>
+                ) : (
+                  <div className="grid lg:grid-cols-2 gap-6">
+                    {(isViewingHistorical ? historicalCourts : courts).map((ct) => {
+                      const teamAScore = ct.scoreA ?? 0;
+                      const teamBScore = ct.scoreB ?? 0;
+                      const isWinnersCourt = ct.court_num === 1;
+                      const hasScore = teamAScore > 0 || teamBScore > 0;
+                      const teamAWinning = teamAScore > teamBScore;
+                      const teamBWinning = teamBScore > teamAScore;
+                      
+                      return (
+                        <div
+                          key={ct.court_num}
+                          className={`rounded-xl shadow-sm border p-6 transition-all duration-200 ${
+                            isWinnersCourt 
+                              ? "border-blue-300 bg-blue-50" 
+                              : "bg-white border-gray-200 hover:shadow-md"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-semibold text-gray-900">
+                              Court {ct.court_num}
+                              {isWinnersCourt && (
+                                <span className="ml-2 text-blue-600 text-sm">🏆 Winners Court</span>
+                              )}
+                            </h3>
+                            {hasScore && (
+                              <div className={`text-xs px-3 py-1 rounded-full font-medium ${
+                                teamAWinning 
+                                  ? "bg-green-100 text-green-700 border border-green-200"
+                                  : teamBWinning
+                                  ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                  : "bg-gray-100 text-gray-700 border border-gray-200"
+                              }`}>
+                                {teamAWinning ? "Team A Leading" : teamBWinning ? "Team B Leading" : "Tied"}
+                              </div>
+                            )}
+                          </div>
+                          
+                          <div className="grid grid-cols-3 items-center gap-4 mb-6">
+                            <div className="text-center">
+                              <div className="font-medium text-sm text-gray-500 mb-2">Team A</div>
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {players[ct.teamA[0]]?.full_name || 'Player 1'}
+                                </div>
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {players[ct.teamA[1]]?.full_name || 'Player 2'}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="text-center text-gray-400 text-xl font-bold">VS</div>
+                            <div className="text-center">
+                              <div className="font-medium text-sm text-gray-500 mb-2">Team B</div>
+                              <div className="space-y-1">
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {players[ct.teamB[0]]?.full_name || 'Player 1'}
+                                </div>
+                                <div className="text-sm font-medium text-gray-900 truncate">
+                                  {players[ct.teamB[1]]?.full_name || 'Player 2'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <div className="text-center">
+                            <div className="text-6xl font-bold mb-2">
+                              <span className={teamAWinning ? "text-green-600" : "text-gray-700"}>
+                                {teamAScore}
+                              </span>
+                              <span className="text-gray-400 mx-4">:</span>
+                              <span className={teamBWinning ? "text-blue-600" : "text-gray-700"}>
+                                {teamBScore}
+                              </span>
+                            </div>
+                            {!hasScore && (
+                              <div className="text-sm text-gray-500">
+                                Match not started
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Leaderboard - Normal Mode */}
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mt-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4 flex items-center gap-3">
+                <Trophy className="text-yellow-600" size={28} />
+                Live Rankings
+              </h2>
+              <LeaderboardTable rows={leaderboard as any} />
+            </div>
           </>
         )}
 
-        {/* Courts grid - Only show in normal mode */}
-        {!tvMode && (
-          <>
-        {loading ? (
-              <div className="py-16 text-center text-gray-500">Loading…</div>
-        ) : errorMsg ? (
-              <div className="py-16 text-center text-red-600">{errorMsg}</div>
-            ) : (isViewingHistorical ? historicalCourts : courts).length === 0 ? (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-                <p className="text-gray-500">No matches in this round yet.</p>
-          </div>
-        ) : (
-              <div className="grid lg:grid-cols-2 gap-6">
-            {(isViewingHistorical ? historicalCourts : courts).map((ct) => {
-              const teamAScore = ct.scoreA ?? 0;
-              const teamBScore = ct.scoreB ?? 0;
-              const isWinnersCourt = ct.court_num === 1;
-              const hasScore = teamAScore > 0 || teamBScore > 0;
-              const teamAWinning = teamAScore > teamBScore;
-              const teamBWinning = teamBScore > teamAScore;
-              
-              return (
-              <div
-                key={ct.court_num}
-                  className={`rounded-xl shadow-sm border p-6 transition-all duration-200 ${
-                    isWinnersCourt 
-                      ? "border-blue-300 bg-blue-50" 
-                      : "bg-white border-gray-200 hover:shadow-md"
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-semibold text-gray-900">
-                  Court {ct.court_num}
-                      {isWinnersCourt && (
-                        <span className="ml-2 text-blue-600 text-sm">🏆 Winners Court</span>
-                      )}
-                    </h3>
-                    {hasScore && (
-                      <div className={`text-xs px-3 py-1 rounded-full font-medium ${
-                        teamAWinning 
-                          ? "bg-green-100 text-green-700 border border-green-200"
-                          : teamBWinning
-                          ? "bg-blue-100 text-blue-700 border border-blue-200"
-                          : "bg-gray-100 text-gray-700 border border-gray-200"
-                      }`}>
-                        {teamAWinning ? "Team A Leading" : teamBWinning ? "Team B Leading" : "Tied"}
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div className="grid grid-cols-3 items-center gap-4 mb-6">
-                    <div className="text-center">
-                      <div className="font-medium text-sm text-gray-500 mb-2">Team A</div>
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">
-                          {players[ct.teamA[0]]?.full_name || 'Player 1'}
-                        </div>
-                        <div className="text-sm font-medium text-gray-900 truncate">
-                          {players[ct.teamA[1]]?.full_name || 'Player 2'}
-                        </div>
-                      </div>
-                </div>
-                    <div className="text-center text-gray-400 text-xl font-bold">VS</div>
-                    <div className="text-center">
-                      <div className="font-medium text-sm text-gray-500 mb-2">Team B</div>
-                      <div className="space-y-1">
-                        <div className="text-sm font-medium text-gray-900 truncate">
-                          {players[ct.teamB[0]]?.full_name || 'Player 1'}
-                  </div>
-                        <div className="text-sm font-medium text-gray-900 truncate">
-                          {players[ct.teamB[1]]?.full_name || 'Player 2'}
-                  </div>
-                </div>
-                </div>
-              </div>
-                  
-                  <div className="text-center">
-                    <div className="text-6xl font-bold mb-2">
-                      <span className={teamAWinning ? "text-green-600" : "text-gray-700"}>
-                        {teamAScore}
-                      </span>
-                      <span className="text-gray-400 mx-4">:</span>
-                      <span className={teamBWinning ? "text-blue-600" : "text-gray-700"}>
-                        {teamBScore}
-                      </span>
-                    </div>
-                    {!hasScore && (
-                      <div className="text-sm text-gray-500">
-                        Match not started
-          </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-              </div>
-            )}
-          </>
-        )}
+
       </div>
     </div>
   );

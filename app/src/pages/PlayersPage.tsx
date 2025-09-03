@@ -12,6 +12,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { PlayerCardSkeleton, EmptyState } from "@/components/ui/skeleton";
 import { Users, Trophy, Target, TrendingUp, Award, UserPlus, Search, SortAsc, ArrowLeft, Crown, Star, Filter, Tag } from "lucide-react";
 import { PlayerService, PlayerGroup } from "@/services/api/playerService";
+import { GAME_CONFIG } from "@/utils/constants";
 
 /** Avatars consistent with other pages */
 function colorForName(name?: string) {
@@ -280,14 +281,14 @@ export default function PlayersPage() {
     try {
       const insertData: any = { 
         full_name: name, 
-        elo: 1200, 
+        elo: GAME_CONFIG.DEFAULT_ELO, 
         club_id: clubId 
       };
       
       // Always use basic insert for now to avoid group-related errors
       const { data, error } = await supabase
         .from("players")
-        .insert({ full_name: name, elo: 1200, club_id: clubId })
+        .insert({ full_name: name, elo: GAME_CONFIG.DEFAULT_ELO, club_id: clubId })
         .select()
         .single();
       
