@@ -1,7 +1,8 @@
 // src/components/AppShell.tsx
 import { ReactNode, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Users2, CalendarDays, Radio, Menu, X, Settings, Building2, BarChart3 } from "lucide-react";
+import { Users2, CalendarDays, Menu, X, Settings, BarChart3 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 
 
@@ -56,7 +57,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <NavLink to="/dashboard" label="Dashboard" icon={BarChart3} />
               <NavLink to="/players" label="Players" icon={Users2} />
               <NavLink to="/events" label="Events" icon={CalendarDays} />
-              <NavLink to="/scoreboard" label="Scoreboard" icon={Radio} />
               <NavLink to="/settings" label="Settings" icon={Settings} />
             </nav>
 
@@ -94,7 +94,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
                   <NavLink to="/dashboard" label="Dashboard" icon={BarChart3} onClick={closeMobileMenu} />
                   <NavLink to="/players" label="Players" icon={Users2} onClick={closeMobileMenu} />
                   <NavLink to="/events" label="Events" icon={CalendarDays} onClick={closeMobileMenu} />
-                  <NavLink to="/scoreboard" label="Scoreboard" icon={Radio} onClick={closeMobileMenu} />
                   <NavLink to="/settings" label="Settings" icon={Settings} onClick={closeMobileMenu} />
                 </nav>
               </div>

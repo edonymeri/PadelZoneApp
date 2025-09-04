@@ -1,5 +1,6 @@
 // src/components/event/EventCreationWizard.tsx
 import { useState, useEffect } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,10 +16,12 @@ import EventReviewStep from "@/components/event/EventReviewStep";
 import type { UUID } from "@/lib/types";
 
 // Basic Event Creation Form Component
-const BasicEventForm = ({ 
+const BasicEventForm = ({
   name, setName, 
   courts, setCourts, 
   mode, setMode, 
+  format, setFormat,
+  variant, setVariant,
   ppg, setPPG, 
   roundMinutes, setRoundMinutes, 
   maxRounds, setMaxRounds, 
@@ -28,7 +31,9 @@ const BasicEventForm = ({
   requiredPlayers, 
   clubId, 
   handleNextStep, 
-  handleCancelCreation 
+  handleCancelCreation,
+  validationErrors,
+  setValidationErrors
 }: {
   name: string;
   setName: (value: string) => void;
@@ -36,6 +41,10 @@ const BasicEventForm = ({
   setCourts: (value: number) => void;
   mode: "points" | "time";
   setMode: (value: "points" | "time") => void;
+  format: "winners-court" | "americano";
+  setFormat: (value: "winners-court" | "americano") => void;
+  variant: "individual" | "team" | null;
+  setVariant: (value: "individual" | "team" | null) => void;
   ppg: number;
   setPPG: (value: number) => void;
   roundMinutes: number;
@@ -52,13 +61,43 @@ const BasicEventForm = ({
   clubId: string;
   handleNextStep: () => void;
   handleCancelCreation: () => void;
+  validationErrors: { name?: boolean; courts?: boolean; ppg?: boolean };
+  setValidationErrors: (errors: { name?: boolean; courts?: boolean; ppg?: boolean }) => void;
 }) => {
+  // Helper function to get format-specific descriptions
+  const getFormatDescription = (format: "winners-court" | "americano", variant?: "individual" | "team" | null) => {
+    switch (format) {
+      case "winners-court":
+        return "Classic tournament format where winners advance and losers drop down courts. Perfect for competitive play.";
+      case "americano":
+        if (variant === "individual") {
+          return "Social format where players rotate partners each round. Everyone plays with everyone exactly once.";
+        } else if (variant === "team") {
+          return "Team-based format with fixed partnerships using Swiss-style pairing for competitive balance.";
+        }
+        return "Choose Individual (rotating partners) or Team (fixed partnerships) variant below.";
+      default:
+        return "Set your event format, courts, and basic settings.";
+    }
+  };
+
+  const getFormatButtonDescription = (format: "winners-court" | "americano") => {
+    switch (format) {
+      case "winners-court":
+        return "Winners advance up courts, competitive ranking";
+      case "americano":
+        return "Social play with partner rotation or team format";
+      default:
+        return "";
+    }
+  };
+
   return (
     <Card className="border-2 border-gray-200 shadow-lg bg-white w-full">
       <CardHeader className="pb-3">
         <CardTitle className="text-xl font-bold text-gray-900">Step 1: Event Basics</CardTitle>
         <p className="text-sm text-gray-600 mt-1">
-          Set your event name, format, and courts. You'll name courts and add players next.
+          {getFormatDescription(format, variant)}
         </p>
       </CardHeader>
       <CardContent>
@@ -70,9 +109,27 @@ const BasicEventForm = ({
                               <Input
                   id="ev-name"
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Mexicano Night — Thu"
-                  className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    // Clear validation error when user starts typing
+                    if (validationErrors.name) {
+                      const newErrors = { ...validationErrors };
+                      delete newErrors.name;
+                      setValidationErrors(newErrors);
+                    }
+                  }}
+                  placeholder={
+                    format === "americano" 
+                      ? variant === "team"
+                        ? "Americano Teams Tournament — Thu"
+                        : "Americano Social — Thu"
+                      : "Winner's Court Night — Thu"
+                  }
+                  className={`bg-white text-gray-900 placeholder-gray-500 focus:ring-blue-500 ${
+                    validationErrors.name 
+                      ? "border-red-500 focus:border-red-500" 
+                      : "border-gray-300 focus:border-blue-500"
+                  }`}
                 />
             </div>
             <div className="space-y-2">
@@ -82,8 +139,20 @@ const BasicEventForm = ({
                   type="number"
                   min={1}
                   value={courts}
-                  onChange={(e) => setCourts(Number(e.target.value) || 1)}
-                  className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                  onChange={(e) => {
+                    setCourts(Number(e.target.value) || 1);
+                    // Clear validation error when user starts typing
+                    if (validationErrors.courts) {
+                      const newErrors = { ...validationErrors };
+                      delete newErrors.courts;
+                      setValidationErrors(newErrors);
+                    }
+                  }}
+                  className={`bg-white text-gray-900 placeholder-gray-500 focus:ring-blue-500 ${
+                    validationErrors.courts 
+                      ? "border-red-500 focus:border-red-500" 
+                      : "border-gray-300 focus:border-blue-500"
+                  }`}
                 />
               <div className="text-xs text-gray-600">
                 You'll need <span className="font-semibold">{requiredPlayers}</span> players for {courts} courts.
@@ -93,9 +162,90 @@ const BasicEventForm = ({
 
           <Separator />
 
-          {/* Mode selection */}
+          {/* Format selection */}
           <div className="space-y-3">
             <Label className="block text-sm font-medium text-gray-700">Format</Label>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  format === "winners-court"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                onClick={() => {
+                  setFormat("winners-court");
+                  setVariant(null);
+                }}
+              >
+                Winner's Court
+              </button>
+              <button
+                type="button"
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  format === "americano"
+                    ? "bg-blue-600 text-white shadow-lg"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+                onClick={() => {
+                  setFormat("americano");
+                  setVariant("individual"); // Default to individual
+                }}
+              >
+                Americano
+              </button>
+            </div>
+            
+            {/* Format-specific description */}
+            <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+              <p className="text-xs text-gray-700 leading-relaxed">
+                <span className="font-medium text-gray-900">
+                  {format === "winners-court" ? "Winner's Court:" : "Americano:"}
+                </span>{" "}
+                {getFormatButtonDescription(format)}
+              </p>
+            </div>
+
+            {format === "americano" && (
+              <div className="space-y-2">
+                <Label className="block text-sm font-medium text-gray-700">Americano Variant</Label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      variant === "individual"
+                        ? "bg-blue-600 text-white shadow-lg"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                    onClick={() => setVariant("individual")}
+                  >
+                    Individual
+                  </button>
+                  <button
+                    type="button"
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      variant === "team"
+                        ? "bg-blue-600 text-white shadow-lg"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    }`}
+                    onClick={() => setVariant("team")}
+                  >
+                    Team
+                  </button>
+                </div>
+                <div className="text-xs text-gray-600">
+                  {variant === "individual" 
+                    ? "Players rotate partners each round, maximize partner variety"
+                    : "Fixed teams compete in Swiss-style or round-robin format"
+                  }
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Mode selection */}
+          <div className="space-y-3">
+            <Label className="block text-sm font-medium text-gray-700">Scoring Mode</Label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -120,9 +270,7 @@ const BasicEventForm = ({
                 Time
               </button>
             </div>
-          </div>
-
-          {/* Mode-specific fields */}
+          </div>          {/* Mode-specific fields */}
           {mode === "points" ? (
             <div className="space-y-4">
               {/* Points per game */}
@@ -134,8 +282,20 @@ const BasicEventForm = ({
                     type="number"
                     min={10}
                     value={ppg}
-                    onChange={(e) => setPPG(Number(e.target.value) || 0)}
-                    className="bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                    onChange={(e) => {
+                      setPPG(Number(e.target.value) || 0);
+                      // Clear validation error when user starts typing
+                      if (validationErrors.ppg) {
+                        const newErrors = { ...validationErrors };
+                        delete newErrors.ppg;
+                        setValidationErrors(newErrors);
+                      }
+                    }}
+                    className={`bg-white text-gray-900 placeholder-gray-500 focus:ring-blue-500 ${
+                      validationErrors.ppg 
+                        ? "border-red-500 focus:border-red-500" 
+                        : "border-gray-300 focus:border-blue-500"
+                    }`}
                   />
                   <div className="text-xs text-gray-600">
                     Typical: 21 (also 24, 28, 32)
@@ -265,12 +425,14 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
   const [name, setName] = useState("");
   const [courts, setCourts] = useState<number>(4);
   const [mode, setMode] = useState<Mode>("points");
+  const [format, setFormat] = useState<"winners-court" | "americano">("winners-court");
+  const [variant, setVariant] = useState<"individual" | "team" | null>(null);
   const [ppg, setPPG] = useState<number>(21);
   const [roundMinutes, setRoundMinutes] = useState<number>(10);
   const [maxRounds, setMaxRounds] = useState<number>(8);
   const [eventDurationHours, setEventDurationHours] = useState<number>(3);
   const [useTimeLimit, setUseTimeLimit] = useState<boolean>(false);
-  const [useRoundLimit, setUseRoundLimit] = useState<boolean>(true);
+  const [useRoundLimit, setUseRoundLimit] = useState<boolean>(false);
 
   // Step 2: Court naming
   const [courtNames, setCourtNames] = useState<string[]>([]);
@@ -280,6 +442,13 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
   const [wildcardStartRound, setWildcardStartRound] = useState<number>(5);
   const [wildcardFrequency, setWildcardFrequency] = useState<number>(3);
   const [wildcardIntensity, setWildcardIntensity] = useState<'mild' | 'medium' | 'mayhem'>('medium');
+
+  // Validation state
+  const [validationErrors, setValidationErrors] = useState<{
+    name?: boolean;
+    courts?: boolean;
+    ppg?: boolean;
+  }>({});
 
   // Step 4: Player assignment
   const [selectedPlayers, setSelectedPlayers] = useState<UUID[]>([]);
@@ -321,39 +490,53 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
 
   // Multi-step navigation
   const handleNextStep = () => {
+    // Reset validation errors
+    setValidationErrors({});
+    
     // Scroll to top when changing steps
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
     switch (creationStep) {
       case "basic":
+        const errors: { name?: boolean; courts?: boolean; ppg?: boolean } = {};
+        
         if (!name.trim()) {
+          errors.name = true;
           toast({ variant: "destructive", title: "Event name is required" });
-          return;
         }
         if (courts < 1) {
+          errors.courts = true;
           toast({ variant: "destructive", title: "Courts must be ≥ 1" });
-          return;
         }
         if (mode === "points" && ppg < 10) {
+          errors.ppg = true;
           toast({ variant: "destructive", title: "Points per game should be ≥ 10 (e.g., 21)" });
-          return;
         }
         if (mode === "time" && roundMinutes <= 0) {
           toast({ variant: "destructive", title: "Round minutes must be > 0" });
-          return;
         }
         if (mode === "points" && useRoundLimit && maxRounds <= 0) {
           toast({ variant: "destructive", title: "Max rounds must be > 0" });
-          return;
         }
         if (mode === "points" && useTimeLimit && eventDurationHours <= 0) {
           toast({ variant: "destructive", title: "Event duration must be > 0" });
+        }
+        
+        // If there are errors, set them and return
+        if (Object.keys(errors).length > 0) {
+          setValidationErrors(errors);
           return;
         }
+        
         setCreationStep("courts");
         break;
       case "courts":
-        setCreationStep("wildcards");
+        // Skip wildcards step for Americano format
+        if (format === "americano") {
+          setCreationStep("players");
+        } else {
+          setCreationStep("wildcards");
+        }
         break;
       case "wildcards":
         setCreationStep("players");
@@ -380,7 +563,12 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
         setCreationStep("courts");
         break;
       case "players":
-        setCreationStep("wildcards");
+        // Skip wildcards step for Americano format when going back
+        if (format === "americano") {
+          setCreationStep("courts");
+        } else {
+          setCreationStep("wildcards");
+        }
         break;
       case "review":
         setCreationStep("players");
@@ -394,12 +582,14 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
     setName("");
     setCourts(4);
     setMode("points");
+    setFormat("winners-court");
+    setVariant(null);
     setPPG(21);
     setRoundMinutes(10);
     setMaxRounds(8);
     setEventDurationHours(3);
     setUseTimeLimit(false);
-    setUseRoundLimit(true);
+    setUseRoundLimit(false);
     setCourtNames([]);
     setWildcardEnabled(false);
     setWildcardStartRound(5);
@@ -426,16 +616,19 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
       const insertRow = {
         name: name.trim(),
         mode: mode === "points" ? "INDIVIDUAL" : "INDIVIDUAL", // Default to individual for now
+        format: format,
+        variant: format === "americano" ? variant : null,
         courts: Math.max(1, courts),
         court_names: courtNames,
         round_minutes: mode === "time" ? roundMinutes : 0,
         points_per_game: mode === "points" ? ppg : 0,
         max_rounds: mode === "points" && useRoundLimit ? maxRounds : null,
         event_duration_hours: mode === "points" && useTimeLimit ? eventDurationHours : null,
-        wildcard_enabled: wildcardEnabled,
-        wildcard_start_round: wildcardEnabled ? wildcardStartRound : null,
-        wildcard_frequency: wildcardEnabled ? wildcardFrequency : null,
-        wildcard_intensity: wildcardEnabled ? wildcardIntensity : null,
+        // Only include wildcard settings for Winner's Court format
+        wildcard_enabled: format === "winners-court" ? wildcardEnabled : false,
+        wildcard_start_round: format === "winners-court" && wildcardEnabled ? wildcardStartRound : null,
+        wildcard_frequency: format === "winners-court" && wildcardEnabled ? wildcardFrequency : null,
+        wildcard_intensity: format === "winners-court" && wildcardEnabled ? wildcardIntensity : null,
         club_id: clubId,
       };
 
@@ -492,6 +685,10 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
           setCourts={setCourts}
           mode={mode}
           setMode={setMode}
+          format={format}
+          setFormat={setFormat}
+          variant={variant}
+          setVariant={setVariant}
           ppg={ppg}
           setPPG={setPPG}
           roundMinutes={roundMinutes}
@@ -508,18 +705,22 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
           clubId={clubId}
           handleNextStep={handleNextStep}
           handleCancelCreation={handleCancelCreation}
+          validationErrors={validationErrors}
+          setValidationErrors={setValidationErrors}
         />
       )}
       {creationStep === "courts" && (
         <CourtNamingStep
           numberOfCourts={courts}
+          format={format}
+          variant={variant}
           courtNames={courtNames}
           onCourtNamesChange={setCourtNames}
           onNext={handleNextStep}
           onBack={handleBackStep}
         />
       )}
-      {creationStep === "wildcards" && (
+      {creationStep === "wildcards" && format === "winners-court" && (
         <WildcardConfigStep
           wildcardEnabled={wildcardEnabled}
           setWildcardEnabled={setWildcardEnabled}
@@ -548,6 +749,8 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
           eventData={{
             name,
             mode: mode === "points" ? "INDIVIDUAL" : "INDIVIDUAL",
+            format: format,
+            variant: format === "americano" ? variant : null,
             courts,
             court_names: courtNames,
             round_minutes: mode === "time" ? roundMinutes : 0,

@@ -1,5 +1,6 @@
 // src/components/event/WildcardModal.tsx
 import { useEffect, useState } from "react";
+
 import { Card } from "@/components/ui/card";
 import { getWildcardIntensityInfo } from "@/utils/wildcardUtils";
 
@@ -13,6 +14,7 @@ interface WildcardModalProps {
     to: string[];
   }>;
   onComplete: () => void;
+  autoReveal?: boolean; // keep legacy timed flow optional
 }
 
 export default function WildcardModal({
@@ -20,10 +22,12 @@ export default function WildcardModal({
   roundNum,
   intensity,
   courtChanges,
-  onComplete
+  onComplete,
+  autoReveal = false
 }: WildcardModalProps) {
   const [stage, setStage] = useState<'announcement' | 'shuffling' | 'reveal'>('announcement');
   const [visibleChanges, setVisibleChanges] = useState(0);
+  const [committing, setCommitting] = useState(false);
   
   const intensityInfo = getWildcardIntensityInfo(intensity);
 
@@ -34,28 +38,35 @@ export default function WildcardModal({
       return;
     }
 
-    const timer1 = setTimeout(() => setStage('shuffling'), 2000);
-    const timer2 = setTimeout(() => setStage('reveal'), 4000);
-    const timer3 = setTimeout(() => {
-      // Reveal changes one by one
-      const revealChanges = (index: number) => {
-        if (index < courtChanges.length) {
-          setVisibleChanges(index + 1);
-          setTimeout(() => revealChanges(index + 1), 300);
-        } else {
-          // Complete after all changes are shown
-          setTimeout(onComplete, 2000);
-        }
-      };
-      revealChanges(0);
-    }, 5000);
+    if (autoReveal) {
+      const timer1 = setTimeout(() => setStage('shuffling'), 2000);
+      const timer2 = setTimeout(() => setStage('reveal'), 4000);
+      const timer3 = setTimeout(() => handleStartReveal(), 5000);
+      return () => { clearTimeout(timer1); clearTimeout(timer2); clearTimeout(timer3); };
+    }
+  }, [isOpen, autoReveal]);
 
-    return () => {
-      clearTimeout(timer1);
-      clearTimeout(timer2);
-      clearTimeout(timer3);
+  function handleStartReveal() {
+    // Reveal changes sequentially
+    const revealChanges = (index: number) => {
+      if (index < courtChanges.length) {
+        setVisibleChanges(index + 1);
+        setTimeout(() => revealChanges(index + 1), 120);
+      };
     };
-  }, [isOpen, courtChanges.length, onComplete]);
+    setStage('reveal');
+    revealChanges(0);
+  }
+
+  async function handleCommit() {
+    setCommitting(true);
+    try {
+      await new Promise(r => setTimeout(r, 400)); // tiny UX delay
+      onComplete();
+    } finally {
+      setCommitting(false);
+    }
+  }
 
   if (!isOpen) return null;
 
@@ -83,6 +94,16 @@ export default function WildcardModal({
                     {intensityInfo.name}
                   </span>
                 </div>
+                {!autoReveal && (
+                  <div className="pt-4">
+                    <button
+                      onClick={() => setStage('shuffling')}
+                      className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg shadow-purple-500/30 transition-colors"
+                    >
+                      Begin Shuffle
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -111,6 +132,16 @@ export default function WildcardModal({
                     </div>
                   ))}
                 </div>
+                {!autoReveal && (
+                  <div className="pt-4">
+                    <button
+                      onClick={handleStartReveal}
+                      className="px-6 py-3 bg-pink-600 hover:bg-pink-700 text-white rounded-xl font-semibold shadow-lg shadow-pink-500/30 transition-colors"
+                    >
+                      Reveal Changes
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -151,12 +182,19 @@ export default function WildcardModal({
               </div>
 
               {visibleChanges === courtChanges.length && (
-                <div className="mt-6 animate-bounce-in">
+                <div className="mt-6 animate-bounce-in space-y-4">
                   <p className="text-lg font-semibold text-green-600">
                     Get ready for chaos! Good luck! 🍀
                   </p>
-                  <div className="mt-4 text-sm text-gray-500">
-                    Closing automatically...
+                  <button
+                    disabled={committing}
+                    onClick={handleCommit}
+                    className="px-6 py-3 bg-green-600 disabled:opacity-60 hover:bg-green-700 text-white rounded-xl font-semibold shadow-lg shadow-green-500/30 transition-colors"
+                  >
+                    {committing ? 'Starting...' : 'Start Round'}
+                  </button>
+                  <div className="text-xs text-gray-500">
+                    This will lock in these matchups.
                   </div>
                 </div>
               )}

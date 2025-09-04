@@ -1,5 +1,7 @@
 // src/components/groups/GroupManagement.tsx
 import { useState, useEffect } from "react";
+import { Plus, Edit, Trash2, Users, Palette } from "lucide-react";
+
 import { PlayerService, PlayerGroup } from "@/services/api/playerService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,7 +10,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
-import { Plus, Edit, Trash2, Users, Palette } from "lucide-react";
 
 interface GroupManagementProps {
   clubId: string;

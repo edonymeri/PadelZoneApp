@@ -1,5 +1,6 @@
 // src/hooks/useEventControl.ts
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
+
 import { supabase } from "@/lib/supabase";
 import { nextRound } from "@/lib/engine";
 import { roundPointsForPlayer } from "@/lib/scoring";
@@ -28,6 +29,8 @@ export function useEventControl(eventId?: string) {
     wildcard_start_round?: number;
     wildcard_frequency?: number;
     wildcard_intensity?: 'mild' | 'medium' | 'mayhem';
+    format?: string;
+    variant?: string | null;
     ended_at?: string | null 
   } | null>(null);
   const [players, setPlayers] = useState<Record<UUID, Player>>({});
@@ -35,6 +38,9 @@ export function useEventControl(eventId?: string) {
   const [courts, setCourts] = useState<CourtMatch[]>([]);
   const [history, setHistory] = useState<RoundState[]>([]);
   const [nightlyCount, setNightlyCount] = useState<number>(0);
+  // Wildcard / deferred advancement
+  const [pendingNextRound, setPendingNextRound] = useState<RoundState | null>(null);
+  const [pendingIsWildcard, setPendingIsWildcard] = useState(false);
 
   // loading flags
   const [initializing, setInitializing] = useState(true);
@@ -59,13 +65,15 @@ export function useEventControl(eventId?: string) {
 
   // flags
   const isPointsMode = (meta?.points_per_game ?? 0) > 0;
-  const isTimeMode = !isPointsMode && (meta?.round_minutes ?? 0) > 0;
+  // time mode currently unused in UI, omit to reduce lint noise
+  // const isTimeMode = !isPointsMode && (meta?.round_minutes ?? 0) > 0;
   const isEnded = !!meta?.ended_at;
   
   // Enhanced points mode flags
   const hasRoundLimit = isPointsMode && (meta?.max_rounds ?? 0) > 0;
   const hasTimeLimit = isPointsMode && (meta?.event_duration_hours ?? 0) > 0;
-  const shouldShowTimer = isTimeMode || (isPointsMode && hasTimeLimit);
+  const derivedIsTimeMode = !isPointsMode && (meta?.round_minutes ?? 0) > 0;
+  const shouldShowTimer = derivedIsTimeMode || (isPointsMode && hasTimeLimit);
 
   // Timer logic
   useEffect(() => {
@@ -80,7 +88,7 @@ export function useEventControl(eventId?: string) {
   let remainingMs = 0;
   let timeText = "";
   
-  if (isTimeMode) {
+  if (derivedIsTimeMode) {
     const roundMinutes = meta?.round_minutes || 12;
     const totalSeconds = roundMinutes * 60;
     remainingMs = Math.max(0, totalSeconds - elapsed) * 1000;
@@ -193,70 +201,153 @@ export function useEventControl(eventId?: string) {
   };
 
   const endRoundAndAdvance = async () => {
-    if (!eventId || !roundId || loadingRound) return;
+    console.warn("endRoundAndAdvance is deprecated; use prepareAdvanceRound/commitPendingRound for wildcard support.");
+    await prepareAdvanceRound();
+  };
+
+  /**
+   * Prepare advancing the round. Finishes current round (scores/elo/points), computes next round.
+   * If the next is a wildcard round, it defers DB persistence until commitPendingRound is called.
+   * Returns whether advancement was deferred (wildcard) and the prepared next round (if deferred).
+   */
+  const prepareAdvanceRound = async (): Promise<{ deferred: boolean; next?: RoundState | null }> => {
+    if (!eventId || !roundId || loadingRound) return { deferred: false };
 
     const incomplete = courts.filter(ct => ct.scoreA === undefined || ct.scoreB === undefined);
     if (incomplete.length > 0) {
       toast({ variant: "destructive", title: "Please enter all scores before advancing" });
-      return;
+      return { deferred: false };
     }
 
     setLoadingRound(true);
-
     try {
+      // Finish current round in DB & calculate scores/elo
       await supabase.from("rounds").update({ finished: true }).eq("id", roundId);
       await calculateRoundPoints();
       await updateEloRatings();
 
-      let nextRoundState = nextRound(
-        { roundNum, courts },
-        { antiRepeatWindow: 3 },
-        history
-      );
+      // Add current round to local history BEFORE moving on
+      setHistory(prev => [...prev, { roundNum, courts }]);
 
-      // Apply wildcard shuffle if this is a wildcard round
-      if (meta && isWildcardRound(nextRoundState.roundNum, meta as any)) {
-        console.log(`🎲 Round ${nextRoundState.roundNum} is a wildcard round! Applying shuffle...`);
-        const intensity = meta.wildcard_intensity || 'medium';
-        nextRoundState = {
-          ...nextRoundState,
-          courts: applyWildcardShuffle(nextRoundState.courts, intensity)
-        };
+      // Check if Americano tournament is complete before generating next round
+      if (meta?.format === 'americano') {
+        const { isAmericanoComplete } = await import("@/lib/engine");
+        const allPlayers = Object.keys(players);
+        const updatedHistory = [...history, { roundNum, courts }];
+        
+        const isComplete = isAmericanoComplete(
+          updatedHistory,
+          allPlayers,
+          (meta.variant as any) || 'individual'
+        );
+        
+        if (isComplete) {
+          toast({ 
+            title: "Tournament Complete!", 
+            description: "All players have partnered with each other. The Americano tournament is finished.",
+            duration: 5000 
+          });
+          // Don't generate a new round, tournament is complete
+          setLoadingRound(false);
+          return { deferred: false };
+        }
       }
 
-      const { data: newRound, error: newRoundErr } = await supabase
-        .from("rounds")
-        .insert({ event_id: eventId, round_num: nextRoundState.roundNum })
-        .select()
-        .single();
+      // Compute the next round pairings
+      let nextState: RoundState;
+      
+      if (meta?.format === 'americano') {
+        // Use Americano pairing algorithm
+        const { nextAmericanoRound } = await import("@/lib/engine");
+        const allPlayers = Object.keys(players);
+        
+        nextState = nextAmericanoRound(
+          roundNum,
+          meta.courts,
+          allPlayers,
+          history,
+          {
+            format: 'americano',
+            variant: (meta.variant as any) || 'individual',
+            antiRepeatWindow: 3,
+            restBalancing: true
+          }
+        );
+      } else {
+        // Use existing Winners Court algorithm
+        nextState = nextRound(
+          { roundNum, courts },
+          { antiRepeatWindow: 3 },
+          history
+        );
+      }
 
-      if (newRoundErr) throw newRoundErr;
+      // Only apply wildcard logic for Winner's Court format
+      const willBeWildcard = meta && meta.format === 'winners-court' && isWildcardRound(nextState.roundNum, meta as any);
+      if (willBeWildcard) {
+        const intensity = meta!.wildcard_intensity || 'medium';
+        nextState = { ...nextState, courts: applyWildcardShuffle(nextState.courts, intensity) };
+        setPendingNextRound(nextState);
+        setPendingIsWildcard(true);
+        // Do NOT persist yet – UI will show preview/modal
+        setLoadingRound(false);
+        return { deferred: true, next: nextState };
+      }
 
-      const matchInserts = nextRoundState.courts.map(ct => ({
-        round_id: newRound.id,
-        court_num: ct.court_num,
-        team_a_player1: ct.teamA[0],
-        team_a_player2: ct.teamA[1],
-        team_b_player1: ct.teamB[0],
-        team_b_player2: ct.teamB[1],
-      }));
-
-      await supabase.from("matches").insert(matchInserts);
-
-      setHistory(prev => [...prev, { roundNum, courts }]);
-      setRoundNum(nextRoundState.roundNum);
-      setRoundId(newRound.id);
-      setCourts(nextRoundState.courts);
-      setStartedAt(null);
-
-      toast({ title: "Round advanced successfully" });
+      // Persist immediately for normal rounds
+      await persistNextRound(nextState);
+      toast({ title: "Round advanced" });
+      return { deferred: false };
     } catch (error: any) {
-      console.error("Failed to advance round:", error);
+      console.error("Failed to prepare next round:", error);
       toast({ variant: "destructive", title: "Failed to advance round", description: error.message });
+      return { deferred: false };
     } finally {
       setLoadingRound(false);
     }
   };
+
+  /** Persist a prepared next round (used after wildcard reveal) */
+  const commitPendingRound = async () => {
+    if (!eventId || !pendingNextRound) return;
+    setLoadingRound(true);
+    try {
+      await persistNextRound(pendingNextRound);
+      toast({ title: pendingIsWildcard ? "Wildcard round started" : "Round advanced" });
+    } catch (e: any) {
+      console.error("Failed committing pending round", e);
+      toast({ variant: "destructive", title: "Failed to start next round", description: e.message });
+    } finally {
+      setPendingNextRound(null);
+      setPendingIsWildcard(false);
+      setLoadingRound(false);
+    }
+  };
+
+  /** Internal helper to insert next round + matches & update local state */
+  async function persistNextRound(state: RoundState) {
+    const { data: newRound, error: newRoundErr } = await supabase
+      .from("rounds")
+      .insert({ event_id: eventId, round_num: state.roundNum })
+      .select()
+      .single();
+    if (newRoundErr) throw newRoundErr;
+
+    const matchInserts = state.courts.map(ct => ({
+      round_id: newRound.id,
+      court_num: ct.court_num,
+      team_a_player1: ct.teamA[0],
+      team_a_player2: ct.teamA[1],
+      team_b_player1: ct.teamB[0],
+      team_b_player2: ct.teamB[1],
+    }));
+    await supabase.from("matches").insert(matchInserts);
+
+    setRoundNum(state.roundNum);
+    setRoundId(newRound.id);
+    setCourts(state.courts);
+    setStartedAt(null);
+  }
 
   const calculateRoundPoints = async () => {
     if (!eventId || !roundId) return;
@@ -275,7 +366,7 @@ export function useEventControl(eventId?: string) {
           won: aWon,
           court: court.court_num,
           pointDiff: diff,
-          defendedC1: court.court_num === 1 && aWon,
+          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && aWon,
           promoted: false,
         });
 
@@ -293,7 +384,7 @@ export function useEventControl(eventId?: string) {
           won: bWon,
           court: court.court_num,
           pointDiff: diff,
-          defendedC1: court.court_num === 1 && bWon,
+          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && bWon,
           promoted: false,
         });
 
@@ -388,7 +479,7 @@ export function useEventControl(eventId?: string) {
       try {
         const { data: ev, error: evErr } = await supabase
           .from("events")
-          .select("name,courts,court_names,round_minutes,points_per_game,max_rounds,event_duration_hours,wildcard_enabled,wildcard_start_round,wildcard_frequency,wildcard_intensity,ended_at,club_id,public_code")
+          .select("name,courts,court_names,round_minutes,points_per_game,max_rounds,event_duration_hours,wildcard_enabled,wildcard_start_round,wildcard_frequency,wildcard_intensity,format,variant,ended_at,club_id,public_code")
           .eq("id", eventId)
           .single();
         if (evErr) throw evErr;
@@ -405,6 +496,8 @@ export function useEventControl(eventId?: string) {
           wildcard_start_round: ev.wildcard_start_round ?? 5,
           wildcard_frequency: ev.wildcard_frequency ?? 3,
           wildcard_intensity: ev.wildcard_intensity ?? 'medium',
+          format: ev.format ?? 'winners-court',
+          variant: ev.variant ?? null,
           ended_at: ev.ended_at ?? null,
         });
 
@@ -464,17 +557,40 @@ export function useEventControl(eventId?: string) {
     setRoundId(round.id);
     setRoundNum(1);
 
-    // shuffle players for initial pairings
-    const shuffled = [...playerList].sort(() => Math.random() - 0.5);
-    const initialCourts: CourtMatch[] = [];
+    let initialCourts: CourtMatch[];
+    
+    if (meta?.format === 'americano') {
+      // Use Americano seeding for round 1
+      const { nextAmericanoRound } = await import("@/lib/engine");
+      const allPlayerIds = playerList.map(p => p.id);
+      
+      const round1State = nextAmericanoRound(
+        0, // Starting from round 0 to get round 1
+        numCourts,
+        allPlayerIds,
+        [], // No previous rounds
+        {
+          format: 'americano',
+          variant: (meta.variant as any) || 'individual',
+          antiRepeatWindow: 3,
+          restBalancing: true
+        }
+      );
+      
+      initialCourts = round1State.courts;
+    } else {
+      // shuffle players for initial pairings (existing Winners Court logic)
+      const shuffled = [...playerList].sort(() => Math.random() - 0.5);
+      initialCourts = [];
 
-    for (let c = 1; c <= numCourts; c++) {
-      const idx = (c - 1) * 4;
-      initialCourts.push({
-        court_num: c,
-        teamA: [shuffled[idx].id, shuffled[idx + 1].id],
-        teamB: [shuffled[idx + 2].id, shuffled[idx + 3].id],
-      });
+      for (let c = 1; c <= numCourts; c++) {
+        const idx = (c - 1) * 4;
+        initialCourts.push({
+          court_num: c,
+          teamA: [shuffled[idx].id, shuffled[idx + 1].id],
+          teamB: [shuffled[idx + 2].id, shuffled[idx + 3].id],
+        });
+      }
     }
 
     const matchInserts = initialCourts.map(ct => ({
@@ -543,6 +659,8 @@ export function useEventControl(eventId?: string) {
     nightlyCount,
     initializing,
     loadingRound,
+  pendingNextRound,
+  pendingIsWildcard,
     padOpen,
     padTarget,
     startedAt,
@@ -550,7 +668,7 @@ export function useEventControl(eventId?: string) {
     roundId,
     useKeypad,
     isPointsMode,
-    isTimeMode,
+  // isTimeMode,
     shouldShowTimer,
     hasRoundLimit,
     hasTimeLimit,
@@ -566,6 +684,8 @@ export function useEventControl(eventId?: string) {
     setScore,
     startTimer,
     endRoundAndAdvance,
+  prepareAdvanceRound,
+  commitPendingRound,
     undoLastRound,
     endEvent,
     exportEventJSON,

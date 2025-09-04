@@ -1,5 +1,6 @@
 // src/components/event/EventCard.tsx
 import { Link } from "react-router-dom";
+
 import { Button } from "@/components/ui/button";
 
 type Ev = {
@@ -30,7 +31,7 @@ export default function EventCard({ e, isActive, prefetchEvent }: EventCardProps
   const req = e.courts * 4;
   const created = e.created_at ? new Date(e.created_at).toLocaleString() : "";
   const lastActivity = e.last_activity ? new Date(e.last_activity).toLocaleString() : null;
-  const playerPercentage = req > 0 ? Math.round(((e.player_count || 0) / req) * 100) : 0;
+  // Removed unused playerPercentage variable (was not referenced in UI)
   
   return (
     <div

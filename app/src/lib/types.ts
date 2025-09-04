@@ -33,3 +33,32 @@ export type RoundPoints = {
 export type EngineOptions = {
   antiRepeatWindow: number; // e.g., 3
 };
+
+// Event format types
+export type EventFormat = "winners-court" | "americano";
+export type AmericanoVariant = "individual" | "team";
+
+// Team structure for Team Americano
+export type Team = {
+  id: UUID;
+  event_id: UUID;
+  player1_id: UUID;
+  player2_id: UUID;
+  name?: string;
+};
+
+// Americano-specific pairing information
+export type AmericanoPartnerHistory = {
+  playerId: UUID;
+  partners: Set<UUID>;
+  opponents: Set<UUID>;
+  restCount: number;
+  gamesPlayed: number;
+};
+
+export type AmericanoPairingOptions = {
+  format: EventFormat;
+  variant?: AmericanoVariant;
+  antiRepeatWindow: number;
+  restBalancing: boolean;
+};

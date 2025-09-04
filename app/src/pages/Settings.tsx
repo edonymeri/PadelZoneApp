@@ -1,5 +1,6 @@
 // src/pages/Settings.tsx
 import { useState, useEffect, useMemo } from "react";
+
 import { supabase } from "@/lib/supabase";
 import "../settings-override.css";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
+
 import { 
   Settings as SettingsIcon, 
   Building2, 
@@ -31,6 +33,7 @@ import {
   Key,
   UsersIcon
 } from "lucide-react";
+
 import GroupManagement from "@/components/groups/GroupManagement";
 
 interface ClubSettings {

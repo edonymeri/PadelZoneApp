@@ -1,6 +1,8 @@
 // src/pages/NightlySeason.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+
+import { calculateEventLeaderboard } from "@/lib/leaderboard";
 import { supabase } from "@/lib/supabase";
 import type { UUID } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,75 +54,16 @@ export function Nightly({ eventId, players }: NightlyProps) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // aggregated by player
-  const [scoreByPlayer, setScoreByPlayer] = useState<Record<string, number>>({});
-  const [wlByPlayer, setWlByPlayer] = useState<
-    Record<string, { won: number; lost: number; pf: number; pa: number }>
-  >({});
+  // State for leaderboard data
+  const [leaderboardData, setLeaderboardData] = useState<any[]>([]);
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       setErr(null);
       try {
-        // 1) All rounds in this event
-        const { data: rounds, error: rErr } = await supabase
-          .from("rounds")
-          .select("id")
-          .eq("event_id", eventId);
-        if (rErr) throw rErr;
-        const roundIds = (rounds || []).map((r: any) => r.id);
-        // 2) Matches in those rounds (for W/L and points ±)
-        if (roundIds.length) {
-          const { data: ms, error: mErr } = await supabase
-            .from("matches")
-            .select("round_id,court_num,team_a_player1,team_a_player2,team_b_player1,team_b_player2,score_a,score_b")
-            .in("round_id", roundIds)
-            .not("score_a", "is", null)
-            .not("score_b", "is", null);
-          if (mErr) throw mErr;
-
-          const wl: Record<string, { won: number; lost: number; pf: number; pa: number }> = {};
-          (ms || []).forEach((m: any) => {
-            // Skip matches without scores (defensive check)
-            if (m.score_a === null || m.score_b === null) {
-              return;
-            }
-            
-            const A = [m.team_a_player1, m.team_a_player2].filter(Boolean);
-            const B = [m.team_b_player1, m.team_b_player2].filter(Boolean);
-            const a = m.score_a ?? 0;
-            const b = m.score_b ?? 0;
-            const aWon = a > b;
-            // team A players
-            A.forEach((pid: string) => {
-              wl[pid] = wl[pid] || { won: 0, lost: 0, pf: 0, pa: 0 };
-              wl[pid].pf += a; wl[pid].pa += b;
-              aWon ? wl[pid].won++ : wl[pid].lost++;
-            });
-            // team B players
-            B.forEach((pid: string) => {
-              wl[pid] = wl[pid] || { won: 0, lost: 0, pf: 0, pa: 0 };
-              wl[pid].pf += b; wl[pid].pa += a;
-              aWon ? wl[pid].lost++ : wl[pid].won++;
-            });
-          });
-          setWlByPlayer(wl);
-        } else {
-          setWlByPlayer({});
-        }
-
-        // 3) round_points aggregated to "Score"
-        const { data: pts, error: pErr } = await supabase
-          .from("round_points")
-          .select("player_id, points")
-          .eq("event_id", eventId);
-        if (pErr) throw pErr;
-        const agg: Record<string, number> = {};
-        (pts || []).forEach((r: any) => {
-          agg[r.player_id] = (agg[r.player_id] || 0) + (r.points || 0);
-        });
-        setScoreByPlayer(agg);
+        const data = await calculateEventLeaderboard(eventId);
+        setLeaderboardData(data);
       } catch (e: any) {
         setErr(e.message || String(e));
       } finally {
@@ -134,16 +77,18 @@ export function Nightly({ eventId, players }: NightlyProps) {
     const ids = Object.keys(players);
     const out = ids.map((pid) => {
       const name = players[pid]?.full_name || "—";
-      const score = scoreByPlayer[pid] ?? 0;
-      const wl = wlByPlayer[pid] || { won: 0, lost: 0, pf: 0, pa: 0 };
-      const diff = wl.pf - wl.pa;
-      const gamesPlayed = wl.won + wl.lost;
-      return { pid, name, score, gamesPlayed, won: wl.won, lost: wl.lost, diff };
+      const playerData = leaderboardData.find(p => p.player_id === pid);
+      const score = playerData?.total_score ?? 0;
+      const won = playerData?.games_won ?? 0;
+      const lost = playerData?.games_lost ?? 0;
+      const diff = playerData?.goal_difference ?? 0;
+      const gamesPlayed = playerData?.games_played ?? 0;
+      return { pid, name, score, gamesPlayed, won, lost, diff };
     });
     // sort by Score desc, then diff desc, then name
     out.sort((a, b) => (b.score - a.score) || (b.diff - a.diff) || a.name.localeCompare(b.name));
     return out;
-  }, [players, scoreByPlayer, wlByPlayer]);
+  }, [players, leaderboardData]);
 
   return (
     <div className="overflow-x-auto">

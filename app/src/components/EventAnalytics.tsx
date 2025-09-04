@@ -1,5 +1,6 @@
 // src/components/EventAnalytics.tsx
 import { useMemo } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { UUID } from "@/lib/types";
 

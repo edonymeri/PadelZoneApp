@@ -1,9 +1,10 @@
 // src/components/event/EventHeader.tsx
+import { Link } from "react-router-dom";
+import { ChevronLeft, ChevronRight, History, Users, Trophy } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, History, Users, Trophy } from "lucide-react";
 
 interface EventHeaderProps {
   meta: {

@@ -1,11 +1,12 @@
 // src/pages/ClubsPage.tsx
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
 
 type Club = { id: string; name: string; created_at: string };
 

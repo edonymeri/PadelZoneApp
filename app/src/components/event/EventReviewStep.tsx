@@ -8,6 +8,8 @@ interface EventReviewStepProps {
   eventData: {
     name: string;
     mode: string;
+    format?: string;
+    variant?: string | null;
     courts: number;
     court_names: string[];
     round_minutes: number;
@@ -42,6 +44,22 @@ export default function EventReviewStep({
     }
   };
 
+  const getFormatLabel = (format?: string) => {
+    switch (format) {
+      case 'winners-court': return "Winner's Court";
+      case 'americano': return 'Americano';
+      default: return format || "Winner's Court";
+    }
+  };
+
+  const getVariantLabel = (variant?: string | null) => {
+    switch (variant) {
+      case 'individual': return 'Individual';
+      case 'team': return 'Team';
+      default: return '';
+    }
+  };
+
   const getGameTypeLabel = () => {
     if (eventData.points_per_game) {
       return `${eventData.points_per_game} Points`;
@@ -69,6 +87,13 @@ export default function EventReviewStep({
               <div className="flex justify-between">
                 <span className="text-gray-600">Event Name:</span>
                 <span className="font-medium text-gray-900">{eventData.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Format:</span>
+                <Badge variant="outline" className="border-gray-300 text-gray-700">
+                  {getFormatLabel(eventData.format)}
+                  {eventData.variant && ` • ${getVariantLabel(eventData.variant)}`}
+                </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Mode:</span>

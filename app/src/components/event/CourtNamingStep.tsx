@@ -1,5 +1,6 @@
 // src/components/event/CourtNamingStep.tsx
 import { useState, useEffect } from "react";
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 interface CourtNamingStepProps {
   numberOfCourts: number;
   courtNames: string[];
+  format?: "winners-court" | "americano";
+  variant?: "individual" | "team" | null;
   onCourtNamesChange: (names: string[]) => void;
   onNext: () => void;
   onBack: () => void;
@@ -17,6 +20,8 @@ interface CourtNamingStepProps {
 export default function CourtNamingStep({
   numberOfCourts,
   courtNames,
+  format = "winners-court",
+  variant,
   onCourtNamesChange,
   onNext,
   onBack
@@ -24,10 +29,32 @@ export default function CourtNamingStep({
   const [editingCourt, setEditingCourt] = useState<number | null>(null);
   const [editValue, setEditValue] = useState("");
 
-  // Generate default court names
+  // Generate default court names based on format
   const getDefaultCourtName = (courtNum: number) => {
-    if (courtNum === 1) return "Winners Court";
-    return `Court ${courtNum}`;
+    if (format === "americano") {
+      return `Court ${courtNum}`;
+    } else {
+      // Winners Court format
+      if (courtNum === 1) return "Winners Court";
+      return `Court ${courtNum}`;
+    }
+  };
+
+  // Get format-specific title and description
+  const getCourtNamingContent = () => {
+    if (format === "americano") {
+      return {
+        title: "🎾 Name Your Courts",
+        description: variant === "team" 
+          ? "Name your courts for the Americano team tournament. All courts are equal - teams rotate based on Swiss pairings."
+          : "Name your courts for the Americano social event. All courts are equal - players rotate to experience different partners."
+      };
+    } else {
+      return {
+        title: "🏆 Name Your Courts", 
+        description: "Customize your court names. Court 1 is typically your main court (Winners Court)."
+      };
+    }
   };
 
   // Initialize court names if not provided
@@ -71,14 +98,16 @@ export default function CourtNamingStep({
     onCourtNamesChange(newNames);
   };
 
+  const courtContent = getCourtNamingContent();
+
   return (
     <Card className="border-2 border-gray-200 shadow-lg bg-white w-full">
       <CardHeader>
         <CardTitle className="text-center text-2xl font-bold text-gray-900">
-          🏆 Name Your Courts
+          {courtContent.title}
         </CardTitle>
         <p className="text-center text-gray-600">
-          Customize your court names. Court 1 is typically your main court (Winners Court).
+          {courtContent.description}
         </p>
       </CardHeader>
       <CardContent className="space-y-6">

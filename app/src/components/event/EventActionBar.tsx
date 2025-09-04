@@ -1,6 +1,6 @@
 // src/components/event/EventActionBar.tsx
+
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 
 interface EventActionBarProps {
   loadingRound: boolean;
@@ -10,6 +10,7 @@ interface EventActionBarProps {
   exportEventJSON: () => void;
   nextRoundIsWildcard?: boolean;
   disabled?: boolean;
+  isAmericanoComplete?: boolean;
 }
 
 export default function EventActionBar({
@@ -19,82 +20,87 @@ export default function EventActionBar({
   endEvent,
   exportEventJSON,
   nextRoundIsWildcard = false,
-  disabled = false
+  disabled = false,
+  isAmericanoComplete = false
 }: EventActionBarProps) {
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 sticky bottom-4 z-20 animate-slide-in-bottom">
-      <div className="flex flex-col gap-3">
-        {/* Primary Action - Full width on mobile */}
+    <div className="bg-white border-t border-gray-200 px-4 py-3 sticky bottom-0 z-20 shadow-lg">
+      <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        {/* Primary Action */}
         <Button
           onClick={endRoundAndAdvance}
           disabled={loadingRound || disabled}
-          className={`w-full px-4 sm:px-6 py-3 rounded-xl font-semibold text-base sm:text-lg hover-scale transition-transform-smooth animate-bounce-in ${
+          size="sm"
+          className={`px-4 py-2 text-sm font-medium ${
             disabled 
               ? "bg-gray-300 text-gray-500 cursor-not-allowed" 
-              : "bg-blue-500 hover:bg-blue-600 text-white"
+              : isAmericanoComplete
+              ? "bg-green-600 hover:bg-green-700 text-white"
+              : "bg-blue-600 hover:bg-blue-700 text-white"
           }`}
         >
           {loadingRound ? (
             <>
               <span className="animate-spin mr-2">⏳</span>
-              <span className="hidden sm:inline">Processing...</span>
-              <span className="sm:hidden">Processing</span>
+              Processing...
             </>
           ) : disabled ? (
             <>
               <span className="mr-2">🔒</span>
-              <span className="hidden sm:inline">Historical Mode</span>
-              <span className="sm:hidden">Historical</span>
+              Historical Mode
+            </>
+          ) : isAmericanoComplete ? (
+            <>
+              <span className="mr-2">🏆</span>
+              Tournament Complete
             </>
           ) : nextRoundIsWildcard ? (
             <>
               <span className="mr-2">🎲</span>
-              <span className="hidden sm:inline">End Round & Wildcard!</span>
-              <span className="sm:hidden">End & Wildcard!</span>
+              End Round & Wildcard
             </>
           ) : (
             <>
               <span className="mr-2">🚀</span>
-              <span className="hidden sm:inline">End Round & Advance</span>
-              <span className="sm:hidden">End & Advance</span>
+              End Round & Advance
             </>
           )}
         </Button>
         
-        {/* Secondary Actions - Grid layout for better mobile spacing */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 stagger-animate">
+        {/* Secondary Actions */}
+        <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
+            size="sm"
             onClick={undoLastRound} 
             disabled={disabled}
-            className={`px-3 py-2 text-sm hover-lift transition-transform-smooth ${
-              disabled ? "border-gray-300 text-gray-400 cursor-not-allowed" : "border-gray-300"
+            className={`px-3 py-2 text-sm ${
+              disabled ? "border-gray-300 text-gray-400 cursor-not-allowed" : "border-gray-300 text-gray-700"
             }`}
           >
-            <span className="mr-1 sm:mr-2">↶</span>
-            <span className="hidden sm:inline">Undo</span>
-            <span className="sm:hidden">Undo</span>
+            <span className="mr-1">↶</span>
+            Undo
           </Button>
           <Button 
             variant="outline" 
+            size="sm"
             onClick={endEvent} 
             disabled={disabled}
-            className={`px-3 py-2 text-sm hover-lift transition-transform-smooth ${
+            className={`px-3 py-2 text-sm ${
               disabled ? "border-gray-300 text-gray-400 cursor-not-allowed" : "border-red-300 text-red-600 hover:bg-red-50"
             }`}
           >
-            <span className="mr-1 sm:mr-2">🏁</span>
-            <span className="hidden sm:inline">End Event</span>
-            <span className="sm:hidden">End</span>
+            <span className="mr-1">🏁</span>
+            End Event
           </Button>
           <Button 
             variant="outline" 
+            size="sm"
             onClick={exportEventJSON} 
-            className="px-3 py-2 text-sm border-gray-300 hover-lift transition-transform-smooth col-span-2 sm:col-span-1"
+            className="px-3 py-2 text-sm border-gray-300 text-gray-700"
           >
-            <span className="mr-1 sm:mr-2">📥</span>
-            <span className="hidden sm:inline">Export</span>
-            <span className="sm:hidden">Export JSON</span>
+            <span className="mr-1">📥</span>
+            Export
           </Button>
         </div>
       </div>

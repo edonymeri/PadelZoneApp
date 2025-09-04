@@ -1,14 +1,14 @@
 // src/pages/EventsPage.tsx
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Link } from "react-router-dom";
 import EventCreationWizard from "@/components/event/EventCreationWizard";
 import EventCard from "@/components/event/EventCard";
 import { EventStats, EventFilters } from "@/components/event/EventFiltersAndStats";
-import { EventCardSkeleton, EmptyState } from "@/components/ui/skeleton";
+// Removed unused EventCardSkeleton and EmptyState imports
 
 type Ev = {
   id: string;

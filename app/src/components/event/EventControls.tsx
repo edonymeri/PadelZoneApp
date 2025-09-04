@@ -1,13 +1,8 @@
 // src/components/event/EventControls.tsx
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
 import { Clock } from "lucide-react";
-import type { UUID } from "@/lib/types";
+import { Button } from "@/components/ui/button";
 
 interface EventControlsProps {
-  isTimeMode: boolean;
   shouldShowTimer: boolean;
   startedAt: string | null;
   remainingMs: number;
@@ -19,7 +14,6 @@ interface EventControlsProps {
 }
 
 export default function EventControls({
-  isTimeMode,
   shouldShowTimer,
   startedAt,
   remainingMs,

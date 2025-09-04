@@ -1,7 +1,8 @@
 // src/components/event/EventFiltersAndStats.tsx
+import { Search } from "lucide-react";
+
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
 
 type Ev = {
   id: string;
@@ -54,15 +55,15 @@ export function EventStats({ events, active, completed }: EventStatsProps) {
       bgGradient: "from-amber-50 to-amber-100"
     },
     {
-      value: events.reduce((sum, e) => sum + (e.courts || 0), 0),
-      label: "Total Courts",
+      value: Math.round(events.reduce((sum, e) => sum + (e.courts || 0), 0) / events.length) || 0,
+      label: "Avg Courts",
       icon: "🏟️",
       gradient: "from-purple-500 to-purple-600",
       bgGradient: "from-purple-50 to-purple-100"
     },
     {
-      value: events.reduce((sum, e) => sum + (e.player_count || 0), 0),
-      label: "Total Players",
+      value: Math.round(events.reduce((sum, e) => sum + (e.player_count || 0), 0) / events.length) || 0,
+      label: "Avg Players",
       icon: "👥",
       gradient: "from-orange-500 to-orange-600",
       bgGradient: "from-orange-50 to-orange-100"

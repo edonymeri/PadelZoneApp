@@ -1,10 +1,8 @@
 // src/components/event/EventQuickStats.tsx
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
-import { ChevronDown, ChevronUp, Trophy, Users, Clock, Target } from "lucide-react";
+import { ChevronDown, ChevronUp, Trophy, Users, Target } from "lucide-react";
 import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
 import type { CourtMatch } from "@/lib/types";
 
 type Player = { id: string; full_name: string; elo: number };

@@ -1,10 +1,6 @@
 // src/pages/Dashboard.tsx
 import { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/lib/supabase";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
 import { 
   CalendarDays, 
   Users, 
@@ -19,6 +15,11 @@ import {
   Play,
   Calendar
 } from "lucide-react";
+
+import { supabase } from "@/lib/supabase";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 interface DashboardStats {
   totalEvents: number;

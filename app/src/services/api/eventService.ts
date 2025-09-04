@@ -72,7 +72,7 @@ export class EventService {
    * Get all events for a club (or public events)
    */
   static async getEvents(clubId?: string): Promise<Event[]> {
-    let query = supabase
+    const query = supabase
       .from('events')
       .select('id,name,courts,round_minutes,points_per_game,ended_at,created_at,club_id')
       .order('created_at', { ascending: false });
@@ -138,7 +138,12 @@ export class EventService {
       .eq('event_id', eventId);
 
     if (error) throw new Error(`Failed to load event players: ${error.message}`);
-    return data || [];
+    const normalized = (data || []).map((row: any) => ({
+      event_id: row.event_id,
+      player_id: row.player_id,
+      players: Array.isArray(row.players) ? row.players[0] : row.players,
+    })) as EventPlayer[];
+    return normalized;
   }
 
   /**

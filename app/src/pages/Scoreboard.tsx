@@ -1,10 +1,13 @@
 // src/pages/Scoreboard.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Monitor, MonitorX, Trophy, Users, ChevronLeft, ChevronRight, Settings } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
 import { determineEventWinners } from "@/lib/scoring";
+import { isWildcardRound, getNextWildcardRound } from "@/utils/wildcardUtils";
+import { diffRounds } from "@/utils/wildcardDiff";
 import type { CourtMatch, UUID } from "@/lib/types";
-import { Monitor, MonitorX, Trophy, Users, ChevronLeft, ChevronRight, Settings } from "lucide-react";
 import RoundNav from "@/components/scoreboard/RoundNav";
 import LeaderboardTable from "@/components/scoreboard/LeaderboardTable";
 import EventWinners from "@/components/event/EventWinners";
@@ -417,9 +420,27 @@ export default function Scoreboard() {
       const allPlayers = Array.from(playerStats.values());
       const winners = determineEventWinners(allPlayers);
 
-      // Convert to array and sort by total score
+      // Convert to array and sort by total score with proper tiebreakers
       const leaderboardData = allPlayers
-        .sort((a, b) => b.total_score - a.total_score)
+        .sort((a, b) => {
+          // Primary: Total score (points)
+          if (b.total_score !== a.total_score) {
+            return b.total_score - a.total_score;
+          }
+          
+          // Tiebreaker 1: Games won
+          if (b.games_won !== a.games_won) {
+            return b.games_won - a.games_won;
+          }
+          
+          // Tiebreaker 2: Goal difference (games scored - games conceded)
+          if (b.goal_difference !== a.goal_difference) {
+            return b.goal_difference - a.goal_difference;
+          }
+          
+          // Tiebreaker 3: Games played (fewer is better if all else equal)
+          return a.games_played - b.games_played;
+        })
         .slice(0, 20);
 
       console.log("Final leaderboard data:", leaderboardData);
@@ -467,14 +488,14 @@ export default function Scoreboard() {
 
       // Convert to CourtMatch format
       const historicalCourtMatches = (matches || []).map((m: any) => ({
-        court_num: m.court_num,
-        teamA: [m.team_a_player1, m.team_a_player2],
-        teamB: [m.team_b_player1, m.team_b_player2],
+        court_num: m.court_num as number,
+        teamA: [m.team_a_player1, m.team_a_player2] as [string, string],
+        teamB: [m.team_b_player1, m.team_b_player2] as [string, string],
         scoreA: m.score_a ?? undefined,
         scoreB: m.score_b ?? undefined,
-      }));
+      })) as CourtMatch[];
 
-      setHistoricalCourts(historicalCourtMatches);
+      setHistoricalCourts(historicalCourtMatches as CourtMatch[]);
       console.log(`Loaded ${historicalCourtMatches.length} historical matches for round ${targetRoundNum}`);
     } catch (err) {
       console.error("Failed to load historical round:", err);
@@ -726,11 +747,18 @@ export default function Scoreboard() {
   return (
     <div className={tvMode ? "w-screen h-screen bg-gray-50" : "min-h-screen bg-gray-50"}>
       <div className={tvMode ? "w-full h-full p-4" : "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8"}>
-        {/* Header */}
+  {/* Header */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 truncate mb-2">{meta?.name || "Event"}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 truncate mb-2 flex items-center gap-3">
+                {meta?.name || "Event"}
+                {meta && isWildcardRound(roundNum, meta as any) && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-sm">
+                    🎲 Wildcard Round
+                  </span>
+                )}
+              </h1>
               <div className="text-gray-600">
               {isPointsMode
                 ? `${meta?.courts ?? "—"} courts · ${meta?.points_per_game} pts`
@@ -774,6 +802,24 @@ export default function Scoreboard() {
           </div>
         </div>
 
+        {/* Wildcard upcoming notice (normal mode only) */}
+        {!tvMode && meta && !isWildcardRound(roundNum, meta as any) && (
+          (() => {
+            const nextWc = getNextWildcardRound(roundNum, meta as any);
+            if (!nextWc) return null;
+            return (
+              <div className="mb-6 rounded-xl border border-purple-200 bg-purple-50 px-5 py-4 flex items-center gap-4 animate-fade-in">
+                <div className="text-2xl">🎲</div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-purple-800">
+                    Wildcard round coming up: Round {nextWc}
+                  </p>
+                  <p className="text-xs text-purple-700/80">Expect shuffled courts & fresh matchups.</p>
+                </div>
+              </div>
+            );
+          })()
+        )}
         {tvMode ? (
           /* TV MODE LAYOUT - FULL SCREEN */
           <div className="h-full flex flex-col">
@@ -959,13 +1005,19 @@ export default function Scoreboard() {
                   </div>
                 ) : (
                   <div className="grid lg:grid-cols-2 gap-6">
-                    {(isViewingHistorical ? historicalCourts : courts).map((ct) => {
+                    {(() => {
+                      const current = (isViewingHistorical ? historicalCourts : courts);
+                      const prev = null; // Placeholder: could fetch previous round for richer highlighting
+                      const diff = diffRounds(prev, current);
+                      const moved = diff.movedPlayerIds;
+                      return current.map((ct) => {
                       const teamAScore = ct.scoreA ?? 0;
                       const teamBScore = ct.scoreB ?? 0;
                       const isWinnersCourt = ct.court_num === 1;
                       const hasScore = teamAScore > 0 || teamBScore > 0;
                       const teamAWinning = teamAScore > teamBScore;
                       const teamBWinning = teamBScore > teamAScore;
+                      const playerMoved = (pid: any) => moved.has(pid);
                       
                       return (
                         <div
@@ -1000,10 +1052,10 @@ export default function Scoreboard() {
                             <div className="text-center">
                               <div className="font-medium text-sm text-gray-500 mb-2">Team A</div>
                               <div className="space-y-1">
-                                <div className="text-sm font-medium text-gray-900 truncate">
+                                <div className={`text-sm font-medium truncate ${playerMoved(ct.teamA[0]) ? 'text-purple-700 animate-pulse' : 'text-gray-900'}`}>
                                   {players[ct.teamA[0]]?.full_name || 'Player 1'}
                                 </div>
-                                <div className="text-sm font-medium text-gray-900 truncate">
+                                <div className={`text-sm font-medium truncate ${playerMoved(ct.teamA[1]) ? 'text-purple-700 animate-pulse' : 'text-gray-900'}`}>
                                   {players[ct.teamA[1]]?.full_name || 'Player 2'}
                                 </div>
                               </div>
@@ -1012,10 +1064,10 @@ export default function Scoreboard() {
                             <div className="text-center">
                               <div className="font-medium text-sm text-gray-500 mb-2">Team B</div>
                               <div className="space-y-1">
-                                <div className="text-sm font-medium text-gray-900 truncate">
+                                <div className={`text-sm font-medium truncate ${playerMoved(ct.teamB[0]) ? 'text-purple-700 animate-pulse' : 'text-gray-900'}`}>
                                   {players[ct.teamB[0]]?.full_name || 'Player 1'}
                                 </div>
-                                <div className="text-sm font-medium text-gray-900 truncate">
+                                <div className={`text-sm font-medium truncate ${playerMoved(ct.teamB[1]) ? 'text-purple-700 animate-pulse' : 'text-gray-900'}`}>
                                   {players[ct.teamB[1]]?.full_name || 'Player 2'}
                                 </div>
                               </div>
@@ -1040,7 +1092,7 @@ export default function Scoreboard() {
                           </div>
                         </div>
                       );
-                    })}
+                    }); })()}
                   </div>
                 )}
               </>

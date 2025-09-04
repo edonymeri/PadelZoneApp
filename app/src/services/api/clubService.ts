@@ -34,11 +34,11 @@ export class ClubService {
   static async getClubs(): Promise<Club[]> {
     const { data, error } = await supabase
       .from('clubs')
-      .select('id, name, created_at')
+      .select('id, name, owner_id, created_at')
       .order('created_at', { ascending: false });
 
     if (error) throw new Error(`Failed to load clubs: ${error.message}`);
-    return data || [];
+  return (data || []) as Club[];
   }
 
   /**

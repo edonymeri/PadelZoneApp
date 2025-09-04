@@ -1,11 +1,12 @@
 // src/components/event/WildcardConfigStep.tsx
 import { useState, useEffect } from "react";
+import { Shuffle, Zap, Tornado, Info } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Shuffle, Zap, Tornado, Info } from "lucide-react";
 
 interface WildcardConfigStepProps {
   wildcardEnabled: boolean;

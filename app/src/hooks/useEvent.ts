@@ -1,5 +1,7 @@
 import { useCallback } from 'react';
-import { EventService, type Event, type EventPlayer, type Round, type Match } from '@/services';
+
+import { EventService, type Event } from '@/services';
+
 import { useSupabaseQuery, useSupabaseQueryList, useSupabaseMutation } from './useSupabaseQuery';
 
 /**
@@ -25,6 +27,8 @@ export function useEvent(eventId: string | null) {
   );
 
   const updateEventMutation = useSupabaseMutation<Event, { eventId: string; updates: Partial<Event> }>();
+  const addPlayersMutation = useSupabaseMutation<void, { eventId: string; playerIds: string[] }>();
+  const removePlayersMutation = useSupabaseMutation<void, { eventId: string; playerIds: string[] }>();
 
   const updateEvent = useCallback(async (updates: Partial<Event>) => {
     if (!eventId) return null;
@@ -43,27 +47,21 @@ export function useEvent(eventId: string | null) {
 
   const addPlayersToEvent = useCallback(async (playerIds: string[]) => {
     if (!eventId) return;
-
-    const mutation = useSupabaseMutation<void, { eventId: string; playerIds: string[] }>();
-    await mutation.mutate(
+    await addPlayersMutation.mutate(
       ({ eventId, playerIds }) => EventService.addPlayersToEvent(eventId, playerIds),
       { eventId, playerIds }
     );
-
     playersQuery.refetch();
-  }, [eventId, playersQuery]);
+  }, [eventId, playersQuery, addPlayersMutation]);
 
   const removePlayersFromEvent = useCallback(async (playerIds: string[]) => {
     if (!eventId) return;
-
-    const mutation = useSupabaseMutation<void, { eventId: string; playerIds: string[] }>();
-    await mutation.mutate(
+    await removePlayersMutation.mutate(
       ({ eventId, playerIds }) => EventService.removePlayersFromEvent(eventId, playerIds),
       { eventId, playerIds }
     );
-
     playersQuery.refetch();
-  }, [eventId, playersQuery]);
+  }, [eventId, playersQuery, removePlayersMutation]);
 
   return {
     event: eventQuery.data,

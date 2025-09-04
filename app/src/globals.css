@@ -1,8 +1,9 @@
+@import './styles/modern-variables.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* Brand tokens */
+/* Brand tokens (after design system import) */
 :root {
   /* Brand */
   --brand-primary: #0172FB;

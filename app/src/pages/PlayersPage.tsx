@@ -1,6 +1,8 @@
 // src/pages/PlayersPage.tsx
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
+import { Users, Trophy, Target, TrendingUp, Award, UserPlus, Search, SortAsc, ArrowLeft, Crown, Star, Filter, Tag } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
 import type { UUID } from "@/lib/types";
 import { Input } from "@/components/ui/input";
@@ -10,7 +12,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { PlayerCardSkeleton, EmptyState } from "@/components/ui/skeleton";
-import { Users, Trophy, Target, TrendingUp, Award, UserPlus, Search, SortAsc, ArrowLeft, Crown, Star, Filter, Tag } from "lucide-react";
 import { PlayerService, PlayerGroup } from "@/services/api/playerService";
 import { GAME_CONFIG } from "@/utils/constants";
 
@@ -216,7 +217,7 @@ export default function PlayersPage() {
 
   const searchTerm = filter.toLowerCase().trim();
   const filtered = useMemo(() => {
-    let result = players.filter((p) => {
+    const result = players.filter((p) => {
       // Text search filter
       if (searchTerm && !p.full_name.toLowerCase().includes(searchTerm)) return false;
       
@@ -606,9 +607,9 @@ export default function PlayersPage() {
                   <Trophy className="w-6 h-6 text-gray-600" />
                 </div>
                 <div className="text-2xl font-bold text-gray-800">
-                  {players.reduce((sum, p) => sum + (p.events_played || 0), 0)}
+                  {Math.max(...players.map(p => p.elo || 0))}
                 </div>
-                <div className="text-sm text-gray-600">Total Events</div>
+                <div className="text-sm text-gray-600">Highest ELO</div>
               </CardContent>
             </Card>
           </div>

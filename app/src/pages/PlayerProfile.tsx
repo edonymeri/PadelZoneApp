@@ -1,18 +1,19 @@
 // src/pages/PlayerProfile.tsx
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
+import { Users, Target, Trophy, TrendingUp, Award, Edit, ArrowLeft, Star, Crown, Tag } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+
 import { supabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
-import { Users, Target, Trophy, TrendingUp, Award, Edit, ArrowLeft, Star, Crown, Tag } from "lucide-react";
 import { PlayerGroup } from "@/services/api/playerService";
 
 // Optional: tiny recharts chart for ELO trend (safe to remove if you prefer)
 // If you haven't installed recharts, run: npm i recharts
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ---------- Avatar helpers (deterministic, non-blue) ---------- */
 function colorForName(name?: string) {
@@ -131,7 +132,7 @@ export default function PlayerProfile() {
           .not("score_b", "is", null);
 
         if (matches) {
-          let played = matches.length;
+          const played = matches.length;
           let won = 0;
           let pf = 0;
           let pa = 0;
