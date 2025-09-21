@@ -33,7 +33,7 @@ module.exports = {
   },
   overrides: [
     {
-      files: ['src/__tests__/**', 'src/test/**'],
+  files: [],
       rules: {
         '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
       }
