@@ -366,7 +366,7 @@ export function useEventControl(eventId?: string) {
           won: aWon,
           court: court.court_num,
           pointDiff: diff,
-          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && aWon,
+          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && aWon && roundNum > 4,
           promoted: false,
         });
 
@@ -384,7 +384,7 @@ export function useEventControl(eventId?: string) {
           won: bWon,
           court: court.court_num,
           pointDiff: diff,
-          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && bWon,
+          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && bWon && roundNum > 4,
           promoted: false,
         });
 
