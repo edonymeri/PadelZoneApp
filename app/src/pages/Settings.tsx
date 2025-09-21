@@ -907,6 +907,43 @@ export default function Settings() {
                     </div>
                   </div>
 
+                  <Separator />
+
+                  {/* Account Actions */}
+                  <div>
+                    <h3 className="settings-heading text-lg font-bold mb-4">Account</h3>
+                    <div className="space-y-4">
+                      <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
+                        <h4 className="font-medium text-gray-900 mb-2">Sign Out</h4>
+                        <p className="text-sm text-gray-600 mb-4">
+                          Sign out of your account and return to the login screen.
+                        </p>
+                        <Button
+                          variant="outline"
+                          onClick={async () => {
+                            try {
+                              await supabase.auth.signOut();
+                              toast({
+                                title: "Signed out successfully",
+                                description: "You have been signed out of your account.",
+                              });
+                            } catch (error: any) {
+                              toast({
+                                title: "Error signing out",
+                                description: error.message,
+                                variant: "destructive",
+                              });
+                            }
+                          }}
+                          className="border-gray-300 text-gray-700 hover:bg-gray-100"
+                        >
+                          <User className="w-4 h-4 mr-2" />
+                          Sign Out
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Save Button */}
                   <div className="flex justify-end pt-6 border-t">
                     <Button
