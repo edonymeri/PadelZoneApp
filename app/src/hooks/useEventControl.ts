@@ -7,6 +7,9 @@ import { roundPointsForPlayer } from "@/lib/scoring";
 import { updateEloTeamVsTeam } from "@/lib/elo";
 import { useToast } from "@/components/ui/use-toast";
 import { isWildcardRound, applyWildcardShuffle } from "@/utils/wildcardUtils";
+import { ClubSettingsService } from "@/services/api/clubSettingsService";
+import type { ScoringConfig, BrandingConfig, EloConfig } from "@/lib/clubSettings";
+import { DEFAULT_SCORING_CONFIG } from "@/lib/clubSettings";
 import type { CourtMatch, RoundState, UUID } from "@/lib/types";
 
 type Player = { id: UUID; full_name: string; elo: number };
@@ -31,7 +34,8 @@ export function useEventControl(eventId?: string) {
     wildcard_intensity?: 'mild' | 'medium' | 'mayhem';
     format?: string;
     variant?: string | null;
-    ended_at?: string | null 
+    ended_at?: string | null;
+    club_id?: string;
   } | null>(null);
   const [players, setPlayers] = useState<Record<UUID, Player>>({});
   const [roundNum, setRoundNum] = useState<number>(1);
@@ -56,6 +60,15 @@ export function useEventControl(eventId?: string) {
 
   // DB ids
   const [roundId, setRoundId] = useState<string | null>(null);
+
+  // Club scoring configuration
+  const [scoringConfig, setScoringConfig] = useState<ScoringConfig | null>(null);
+
+  // Club branding configuration
+  const [brandingConfig, setBrandingConfig] = useState<BrandingConfig | null>(null);
+
+  // Club ELO configuration
+  const [eloConfig, setEloConfig] = useState<EloConfig | null>(null);
 
   // desktop vs mobile
   const [useKeypad, setUseKeypad] = useState<boolean>(() => {
@@ -82,6 +95,49 @@ export function useEventControl(eventId?: string) {
     return () => clearInterval(interval);
   }, [shouldShowTimer, startedAt]);
 
+  // Load scoring configuration when event changes
+  useEffect(() => {
+    if (meta?.club_id) {
+      ClubSettingsService.getScoringConfig(meta.club_id)
+        .then(setScoringConfig)
+        .catch(error => {
+          console.error('Failed to load scoring config:', error);
+          // Use default configuration on error
+          setScoringConfig(DEFAULT_SCORING_CONFIG);
+        });
+    } else {
+      setScoringConfig(DEFAULT_SCORING_CONFIG);
+    }
+  }, [meta?.club_id]);
+
+  // Load branding configuration when event changes
+  useEffect(() => {
+    if (meta?.club_id) {
+      ClubSettingsService.getBrandingConfig(meta.club_id)
+        .then(setBrandingConfig)
+        .catch(error => {
+          console.error('Failed to load branding config:', error);
+          setBrandingConfig(null);
+        });
+    } else {
+      setBrandingConfig(null);
+    }
+  }, [meta?.club_id]);
+
+  // Load ELO configuration when event changes
+  useEffect(() => {
+    if (meta?.club_id) {
+      ClubSettingsService.getEloConfig(meta.club_id)
+        .then(setEloConfig)
+        .catch(error => {
+          console.error('Failed to load ELO config:', error);
+          setEloConfig(null);
+        });
+    } else {
+      setEloConfig(null);
+    }
+  }, [meta?.club_id]);
+
   const elapsed = startedAt ? Math.floor((now - new Date(startedAt).getTime()) / 1000) : 0;
   
   // Calculate remaining time based on mode
@@ -104,6 +160,28 @@ export function useEventControl(eventId?: string) {
     const seconds = Math.floor((remainingMs % 60000) / 1000);
     timeText = `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
   }
+
+  // Compute effective court names (merge event-specific with club branding)
+  const effectiveCourtNames = useMemo(() => {
+    // Start with event-specific court names if they exist
+    const eventCourtNames = meta?.court_names || [];
+    
+    // If club has custom court names configured, use those as fallback
+    if (brandingConfig?.useCustomCourtNames && brandingConfig.customCourtNames.length > 0) {
+      const result: string[] = [];
+      const maxCourts = meta?.courts || 0;
+      
+      for (let i = 0; i < maxCourts; i++) {
+        // Use event-specific name if available, otherwise club default
+        result[i] = eventCourtNames[i] || brandingConfig.customCourtNames[i] || `Court ${i + 1}`;
+      }
+      
+      return result;
+    }
+    
+    // No club branding, just return event names
+    return eventCourtNames;
+  }, [meta?.court_names, meta?.courts, brandingConfig]);
 
   // Debounced score update
   const debouncedSetScore = useMemo(() => {
@@ -362,13 +440,17 @@ export function useEventControl(eventId?: string) {
       const diff = Math.abs(court.scoreA - court.scoreB);
 
       for (const playerId of court.teamA) {
+        const bonusStartRound = scoringConfig?.winnersCourtBonusStartRound || DEFAULT_SCORING_CONFIG.winnersCourtBonusStartRound;
         const points = roundPointsForPlayer({
           won: aWon,
           court: court.court_num,
           pointDiff: diff,
-          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && aWon && roundNum > 4,
+          defendedC1: meta?.format === 'winners-court' && 
+                     court.court_num === 1 && 
+                     aWon && 
+                     roundNum > (bonusStartRound - 1),
           promoted: false,
-        });
+        }, scoringConfig || undefined, meta?.format as 'winners-court' | 'americano');
 
         pointsToInsert.push({
           event_id: eventId,
@@ -380,13 +462,17 @@ export function useEventControl(eventId?: string) {
       }
 
       for (const playerId of court.teamB) {
+        const bonusStartRound = scoringConfig?.winnersCourtBonusStartRound || DEFAULT_SCORING_CONFIG.winnersCourtBonusStartRound;
         const points = roundPointsForPlayer({
           won: bWon,
           court: court.court_num,
           pointDiff: diff,
-          defendedC1: meta?.format === 'winners-court' && court.court_num === 1 && bWon && roundNum > 4,
+          defendedC1: meta?.format === 'winners-court' && 
+                     court.court_num === 1 && 
+                     bWon && 
+                     roundNum > (bonusStartRound - 1),
           promoted: false,
-        });
+        }, scoringConfig || undefined, meta?.format as 'winners-court' | 'americano');
 
         pointsToInsert.push({
           event_id: eventId,
@@ -415,7 +501,14 @@ export function useEventControl(eventId?: string) {
       const teamBElo = (players[court.teamB[0]]?.elo || 1000 + players[court.teamB[1]]?.elo || 1000) / 2;
       const aWon = court.scoreA > court.scoreB;
 
-      const deltaA = updateEloTeamVsTeam(teamAElo, teamBElo, aWon);
+      const deltaA = updateEloTeamVsTeam(
+        teamAElo, 
+        teamBElo, 
+        aWon, 
+        eloConfig || undefined, 
+        meta?.format as 'winners-court' | 'americano',
+        meta?.variant as 'individual' | 'team'
+      );
 
       for (const playerId of [...court.teamA, ...court.teamB]) {
         const isTeamA = court.teamA.includes(playerId);
@@ -499,6 +592,7 @@ export function useEventControl(eventId?: string) {
           format: ev.format ?? 'winners-court',
           variant: ev.variant ?? null,
           ended_at: ev.ended_at ?? null,
+          club_id: ev.club_id,
         });
 
         const { data: eps, error: epErr } = await supabase
@@ -649,9 +743,18 @@ export function useEventControl(eventId?: string) {
     setHistory(hist);
   }
 
+  // Enhanced meta with effective court names
+  const enhancedMeta = useMemo(() => {
+    if (!meta) return null;
+    return {
+      ...meta,
+      court_names: effectiveCourtNames
+    };
+  }, [meta, effectiveCourtNames]);
+
   return {
     // State
-    meta,
+    meta: enhancedMeta,
     players,
     roundNum,
     courts,
@@ -679,6 +782,11 @@ export function useEventControl(eventId?: string) {
     // Memoized values
     courtStatuses,
     completionStats,
+
+    // Club configuration
+    scoringConfig,
+    brandingConfig,
+    eloConfig,
 
     // Actions
     setScore,

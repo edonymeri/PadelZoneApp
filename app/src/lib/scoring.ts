@@ -1,10 +1,13 @@
 
+import { getFormatSpecificScoringConfig } from './clubSettings';
+import type { ScoringConfig } from './clubSettings';
+
 /**
- * Simplified scoring system for better player understanding
- * - Base: Win = +3, Loss = 0
- * - Margin bonus: +1 for winning by 10+ points
- * - Defend C1 bonus: +1 for winning on Court 1
- * - Cap: min(5, max(0, total))
+ * Format-aware configurable scoring system using club-specific settings
+ * - Base: Win = configured points, Loss = 0
+ * - Margin bonus: configurable threshold and points
+ * - Defend C1 bonus: configurable points and start round (format-specific)
+ * - Cap: configurable maximum points
  */
 export function roundPointsForPlayer(opts: {
   won: boolean;
@@ -12,12 +15,39 @@ export function roundPointsForPlayer(opts: {
   pointDiff: number;
   defendedC1: boolean;
   promoted: boolean;
-}) {
-  const base = opts.won ? 3 : 0;                    // Win = 3, Loss = 0
-  const margin = opts.won && opts.pointDiff >= 10 ? 1 : 0;  // +1 for 10+ point wins
-  const defend = opts.defendedC1 ? 1 : 0;          // Keep defend C1 bonus
+}, scoringConfig?: ScoringConfig, format?: 'winners-court' | 'americano') {
+  // Use default values if no config provided (backward compatibility)
+  const defaultConfig = {
+    baseWinPoints: 3,
+    marginBonusThreshold: 10,
+    marginBonusPoints: 1,
+    maxPointsPerMatch: 5,
+    winnersCourtBonusPoints: 1,
+  };
+
+  // Get format-specific configuration if available
+  let config;
+  if (scoringConfig && format) {
+    const formatConfig = getFormatSpecificScoringConfig(scoringConfig, format);
+    config = formatConfig;
+  } else if (scoringConfig) {
+    // Legacy: use direct config properties
+    config = {
+      baseWinPoints: scoringConfig.baseWinPoints,
+      marginBonusThreshold: scoringConfig.marginBonusThreshold,
+      marginBonusPoints: scoringConfig.marginBonusPoints,
+      maxPointsPerMatch: scoringConfig.maxPointsPerMatch,
+      winnersCourtBonusPoints: scoringConfig.winnersCourtBonusPoints,
+    };
+  } else {
+    config = defaultConfig;
+  }
+
+  const base = opts.won ? config.baseWinPoints : 0;
+  const margin = opts.won && opts.pointDiff >= config.marginBonusThreshold ? config.marginBonusPoints : 0;
+  const defend = opts.defendedC1 ? config.winnersCourtBonusPoints : 0;
   const total = base + margin + defend;
-  return Math.max(0, Math.min(5, total));          // Cap at 5 points
+  return Math.max(0, Math.min(config.maxPointsPerMatch, total));
 }
 
 /**

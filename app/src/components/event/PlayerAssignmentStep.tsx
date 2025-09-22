@@ -21,6 +21,8 @@ interface PlayerAssignmentStepProps {
   onSelectedPlayersChange: (players: UUID[]) => void;
   onNext: () => void;
   onBack: () => void;
+  requiredPlayers?: number;
+  format?: string;
 }
 
 export default function PlayerAssignmentStep({
@@ -28,7 +30,9 @@ export default function PlayerAssignmentStep({
   selectedPlayers,
   onSelectedPlayersChange,
   onNext,
-  onBack
+  onBack,
+  requiredPlayers = 4,
+  format = "winners-court"
 }: PlayerAssignmentStepProps) {
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
@@ -124,10 +128,26 @@ export default function PlayerAssignmentStep({
         </div>
 
         {/* Player Count */}
-        <div className="text-center">
+        <div className="text-center space-y-2">
           <Badge variant="secondary" className="text-lg px-4 py-2 bg-blue-100 text-blue-800 border-blue-200">
             {selectedPlayers.length} player{selectedPlayers.length !== 1 ? 's' : ''} selected
           </Badge>
+          <div className="text-sm text-gray-600">
+            {format === 'americano' ? (
+              <span>
+                <strong>Americano format:</strong> Requires an even number of players (minimum {requiredPlayers})
+              </span>
+            ) : (
+              <span>
+                <strong>Winners Court format:</strong> Minimum {requiredPlayers} players recommended
+              </span>
+            )}
+          </div>
+          {selectedPlayers.length < requiredPlayers && (
+            <div className="text-sm text-orange-600 font-medium">
+              ⚠️ Need at least {requiredPlayers - selectedPlayers.length} more player{requiredPlayers - selectedPlayers.length !== 1 ? 's' : ''}
+            </div>
+          )}
         </div>
 
         {/* Players List */}

@@ -1,5 +1,5 @@
 // src/components/event/EventCreationWizard.tsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,9 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/lib/supabase";
+import { ClubSettingsService } from "@/services/api/clubSettingsService";
+import { DEFAULT_TOURNAMENT_DEFAULTS, DEFAULT_SCORING_CONFIG, validatePlayerCountForFormat } from "@/lib/clubSettings";
+import { useClubBranding } from "@/hooks/useClubBranding";
 import CourtNamingStep from "@/components/event/CourtNamingStep";
 import WildcardConfigStep from "@/components/event/WildcardConfigStep";
 import PlayerAssignmentStep from "@/components/event/PlayerAssignmentStep";
@@ -33,7 +36,9 @@ const BasicEventForm = ({
   handleNextStep, 
   handleCancelCreation,
   validationErrors,
-  setValidationErrors
+  setValidationErrors,
+  getEventTerminology,
+  getPlayerTerminology
 }: {
   name: string;
   setName: (value: string) => void;
@@ -63,6 +68,8 @@ const BasicEventForm = ({
   handleCancelCreation: () => void;
   validationErrors: { name?: boolean; courts?: boolean; ppg?: boolean };
   setValidationErrors: (errors: { name?: boolean; courts?: boolean; ppg?: boolean }) => void;
+  getEventTerminology: () => string;
+  getPlayerTerminology: () => string;
 }) => {
   // Helper function to get format-specific descriptions
   const getFormatDescription = (format: "winners-court" | "americano", variant?: "individual" | "team" | null) => {
@@ -121,9 +128,9 @@ const BasicEventForm = ({
                   placeholder={
                     format === "americano" 
                       ? variant === "team"
-                        ? "Americano Teams Tournament — Thu"
-                        : "Americano Social — Thu"
-                      : "Winner's Court Night — Thu"
+                        ? `Americano Teams ${getEventTerminology()} — Thu`
+                        : `Americano Social ${getEventTerminology()} — Thu`
+                      : `Winner's Court ${getEventTerminology()} — Thu`
                   }
                   className={`bg-white text-gray-900 placeholder-gray-500 focus:ring-blue-500 ${
                     validationErrors.name 
@@ -417,22 +424,25 @@ interface EventCreationWizardProps {
 export default function EventCreationWizard({ clubId, onEventCreated, onCancel }: EventCreationWizardProps) {
   const { toast } = useToast();
 
+  // Club branding configuration
+  const { getEventTerminology, getPlayerTerminology } = useClubBranding(clubId);
+
   // Multi-step event creation state
   const [creationStep, setCreationStep] = useState<CreationStep>("basic");
   const [isCreating, setIsCreating] = useState(false);
 
   // Step 1: Basic event info
   const [name, setName] = useState("");
-  const [courts, setCourts] = useState<number>(4);
-  const [mode, setMode] = useState<Mode>("points");
-  const [format, setFormat] = useState<"winners-court" | "americano">("winners-court");
+  const [courts, setCourts] = useState<number>(DEFAULT_TOURNAMENT_DEFAULTS.defaultCourts);
+  const [mode, setMode] = useState<Mode>(DEFAULT_TOURNAMENT_DEFAULTS.defaultScoringMode);
+  const [format, setFormat] = useState<"winners-court" | "americano">(DEFAULT_TOURNAMENT_DEFAULTS.defaultFormat);
   const [variant, setVariant] = useState<"individual" | "team" | null>(null);
-  const [ppg, setPPG] = useState<number>(21);
-  const [roundMinutes, setRoundMinutes] = useState<number>(10);
-  const [maxRounds, setMaxRounds] = useState<number>(8);
-  const [eventDurationHours, setEventDurationHours] = useState<number>(3);
-  const [useTimeLimit, setUseTimeLimit] = useState<boolean>(false);
-  const [useRoundLimit, setUseRoundLimit] = useState<boolean>(false);
+  const [ppg, setPPG] = useState<number>(DEFAULT_SCORING_CONFIG.defaultPointsPerGame);
+  const [roundMinutes, setRoundMinutes] = useState<number>(DEFAULT_TOURNAMENT_DEFAULTS.defaultTimePerGame);
+  const [maxRounds, setMaxRounds] = useState<number>(DEFAULT_TOURNAMENT_DEFAULTS.defaultMaxRounds || 8);
+  const [eventDurationHours, setEventDurationHours] = useState<number>(DEFAULT_TOURNAMENT_DEFAULTS.defaultMaxDuration || 3);
+  const [useTimeLimit, setUseTimeLimit] = useState<boolean>(DEFAULT_TOURNAMENT_DEFAULTS.enableTimeLimits);
+  const [useRoundLimit, setUseRoundLimit] = useState<boolean>(DEFAULT_TOURNAMENT_DEFAULTS.enableRoundLimits);
 
   // Step 2: Court naming
   const [courtNames, setCourtNames] = useState<string[]>([]);
@@ -453,8 +463,64 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
   // Step 4: Player assignment
   const [selectedPlayers, setSelectedPlayers] = useState<UUID[]>([]);
   const [players, setPlayers] = useState<Record<string, { full_name: string; elo: number }>>({});
+  const [playerConfig, setPlayerConfig] = useState<any>(null);
 
-  const requiredPlayers = Math.max(1, courts) * 4;
+  // Format-aware required players calculation
+  const requiredPlayers = useMemo(() => {
+    const basicRequired = Math.max(1, courts) * 4;
+    
+    // Add format-specific validation if player config is loaded
+    if (playerConfig) {
+      const validation = validatePlayerCountForFormat(basicRequired, format, playerConfig);
+      if (!validation.valid) {
+        // Return minimum valid count for the format
+        return format === 'winners-court' 
+          ? playerConfig.winnersCourtMinPlayers 
+          : playerConfig.americanoMinPlayers;
+      }
+    }
+    
+    return basicRequired;
+  }, [courts, format, playerConfig]);
+
+  // Load club-specific tournament defaults on component mount
+  useEffect(() => {
+    if (clubId) {
+      const loadClubDefaults = async () => {
+        try {
+          // Load tournament defaults
+          const tournamentDefaults = await ClubSettingsService.getTournamentDefaults(clubId);
+          
+          // Load scoring configuration for points per game default
+          const scoringConfig = await ClubSettingsService.getScoringConfig(clubId);
+          
+          // Load player configuration for format validation
+          const playerConfiguration = await ClubSettingsService.getPlayerConfig(clubId);
+          
+          // Update state with club-specific defaults
+          setCourts(tournamentDefaults.defaultCourts);
+          setMode(tournamentDefaults.defaultScoringMode);
+          setFormat(tournamentDefaults.defaultFormat);
+          setRoundMinutes(tournamentDefaults.defaultTimePerGame);
+          setMaxRounds(tournamentDefaults.defaultMaxRounds || 8);
+          setEventDurationHours(tournamentDefaults.defaultMaxDuration || 3);
+          setUseTimeLimit(tournamentDefaults.enableTimeLimits);
+          setUseRoundLimit(tournamentDefaults.enableRoundLimits);
+          
+          // Set points per game from scoring config
+          setPPG(scoringConfig.defaultPointsPerGame);
+          
+          // Set player configuration
+          setPlayerConfig(playerConfiguration);
+        } catch (error) {
+          console.error('Failed to load club defaults:', error);
+          // Defaults are already set from DEFAULT_TOURNAMENT_DEFAULTS
+        }
+      };
+      
+      loadClubDefaults();
+    }
+  }, [clubId]);
 
   // Load players for player assignment step
   useEffect(() => {
@@ -542,7 +608,17 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
         setCreationStep("players");
         break;
       case "players":
-        if (selectedPlayers.length < 4) {
+        // Use format-aware player validation
+        if (playerConfig) {
+          const validation = validatePlayerCountForFormat(selectedPlayers.length, format, playerConfig);
+          if (!validation.valid) {
+            toast({ 
+              variant: "destructive", 
+              title: validation.message || `You need ${requiredPlayers} players for this format` 
+            });
+            return;
+          }
+        } else if (selectedPlayers.length < 4) {
           toast({ variant: "destructive", title: "You need at least 4 players" });
           return;
         }
@@ -578,18 +654,18 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
 
   const handleCancelCreation = () => {
     setCreationStep("basic");
-    // Reset form state
+    // Reset form state to defaults
     setName("");
-    setCourts(4);
-    setMode("points");
-    setFormat("winners-court");
+    setCourts(DEFAULT_TOURNAMENT_DEFAULTS.defaultCourts);
+    setMode(DEFAULT_TOURNAMENT_DEFAULTS.defaultScoringMode);
+    setFormat(DEFAULT_TOURNAMENT_DEFAULTS.defaultFormat);
     setVariant(null);
-    setPPG(21);
-    setRoundMinutes(10);
-    setMaxRounds(8);
-    setEventDurationHours(3);
-    setUseTimeLimit(false);
-    setUseRoundLimit(false);
+    setPPG(DEFAULT_SCORING_CONFIG.defaultPointsPerGame);
+    setRoundMinutes(DEFAULT_TOURNAMENT_DEFAULTS.defaultTimePerGame);
+    setMaxRounds(DEFAULT_TOURNAMENT_DEFAULTS.defaultMaxRounds || 8);
+    setEventDurationHours(DEFAULT_TOURNAMENT_DEFAULTS.defaultMaxDuration || 3);
+    setUseTimeLimit(DEFAULT_TOURNAMENT_DEFAULTS.enableTimeLimits);
+    setUseRoundLimit(DEFAULT_TOURNAMENT_DEFAULTS.enableRoundLimits);
     setCourtNames([]);
     setWildcardEnabled(false);
     setWildcardStartRound(5);
@@ -707,6 +783,8 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
           handleCancelCreation={handleCancelCreation}
           validationErrors={validationErrors}
           setValidationErrors={setValidationErrors}
+          getEventTerminology={getEventTerminology}
+          getPlayerTerminology={getPlayerTerminology}
         />
       )}
       {creationStep === "courts" && (
@@ -742,6 +820,8 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
           onSelectedPlayersChange={setSelectedPlayers}
           onNext={handleNextStep}
           onBack={handleBackStep}
+          requiredPlayers={requiredPlayers}
+          format={format}
         />
       )}
       {creationStep === "review" && (
