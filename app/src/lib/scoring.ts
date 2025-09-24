@@ -45,7 +45,7 @@ export function roundPointsForPlayer(opts: {
 
   const base = opts.won ? config.baseWinPoints : 0;
   const margin = opts.won && opts.pointDiff >= config.marginBonusThreshold ? config.marginBonusPoints : 0;
-  const defend = opts.defendedC1 ? config.winnersCourtBonusPoints : 0;
+  const defend = opts.won && opts.defendedC1 ? config.winnersCourtBonusPoints : 0;
   const total = base + margin + defend;
   return Math.max(0, Math.min(config.maxPointsPerMatch, total));
 }

@@ -11,6 +11,8 @@ import { ClubSettingsService } from "@/services/api/clubSettingsService";
 import type { ScoringConfig, BrandingConfig, EloConfig } from "@/lib/clubSettings";
 import { DEFAULT_SCORING_CONFIG } from "@/lib/clubSettings";
 import type { CourtMatch, RoundState, UUID } from "@/lib/types";
+import { validateScoreEntry, validateRoundState } from "@/lib/validation";
+import { performanceMonitor, monitorDatabaseOperation } from "@/lib/performance";
 
 type Player = { id: UUID; full_name: string; elo: number };
 
@@ -242,36 +244,58 @@ export function useEventControl(eventId?: string) {
 
   // Actions
   const setScore = (courtNum: number, scoreA?: number, scoreB?: number) => {
-    let A = scoreA, B = scoreB;
-    
-    // Auto-calculate complementary score in points mode
-    if (isPointsMode && meta?.points_per_game) {
-      const total = meta.points_per_game;
-      if (A != null && Number.isNaN(A)) A = undefined;
-      if (B != null && Number.isNaN(B)) B = undefined;
-      if (A != null && B == null) { 
-        A = clamp(A, 0, total); 
-        B = total - A; 
+    return performanceMonitor.timeFunction(async () => {
+      let A = scoreA, B = scoreB;
+      
+      // Validate input scores if both are provided
+      if (A !== undefined && B !== undefined && eventId) {
+        const validation = validateScoreEntry({
+          courtNum,
+          scoreA: A,
+          scoreB: B,
+          eventId,
+          roundNum,
+        });
+        
+        if (!validation.success) {
+          toast({
+            title: "Invalid Score",
+            description: validation.error?.issues[0]?.message || "Score validation failed",
+            variant: "destructive",
+          });
+          return;
+        }
       }
-      else if (B != null && A == null) { 
-        B = clamp(B, 0, total); 
-        A = total - B; 
+      
+      // Auto-calculate complementary score in points mode
+      if (isPointsMode && meta?.points_per_game) {
+        const total = meta.points_per_game;
+        if (A != null && Number.isNaN(A)) A = undefined;
+        if (B != null && Number.isNaN(B)) B = undefined;
+        if (A != null && B == null) { 
+          A = clamp(A, 0, total); 
+          B = total - A; 
+        }
+        else if (B != null && A == null) { 
+          B = clamp(B, 0, total); 
+          A = total - B; 
+        }
+        else if (A != null && B != null) { 
+          A = clamp(A, 0, total); 
+          B = clamp(total - A, 0, total); 
+        }
       }
-      else if (A != null && B != null) { 
-        A = clamp(A, 0, total); 
-        B = clamp(total - A, 0, total); 
-      }
-    }
 
-    setCourts(prev => prev.map(ct => {
-      if (ct.court_num !== courtNum) return ct;
-      const updated = { ...ct };
-      if (A !== undefined) updated.scoreA = A;
-      if (B !== undefined) updated.scoreB = B;
-      return updated;
-    }));
+      setCourts(prev => prev.map(ct => {
+        if (ct.court_num !== courtNum) return ct;
+        const updated = { ...ct };
+        if (A !== undefined) updated.scoreA = A;
+        if (B !== undefined) updated.scoreB = B;
+        return updated;
+      }));
 
-    debouncedSetScore(courtNum, A, B);
+      debouncedSetScore(courtNum, A, B);
+    }, 'setScore', 'userInteractions', { courtNum, hasScores: scoreA !== undefined && scoreB !== undefined });
   };
 
   const startTimer = () => {
@@ -289,16 +313,30 @@ export function useEventControl(eventId?: string) {
    * Returns whether advancement was deferred (wildcard) and the prepared next round (if deferred).
    */
   const prepareAdvanceRound = async (): Promise<{ deferred: boolean; next?: RoundState | null }> => {
-    if (!eventId || !roundId || loadingRound) return { deferred: false };
+    return await performanceMonitor.timeFunction(async () => {
+      if (!eventId || !roundId || loadingRound) return { deferred: false };
 
-    const incomplete = courts.filter(ct => ct.scoreA === undefined || ct.scoreB === undefined);
-    if (incomplete.length > 0) {
-      toast({ variant: "destructive", title: "Please enter all scores before advancing" });
-      return { deferred: false };
-    }
+      // Validate current round state before advancing
+      const currentRoundState = { roundNum, courts };
+      const validation = validateRoundState(currentRoundState);
+      
+      if (!validation.success) {
+        toast({
+          variant: "destructive",
+          title: "Invalid Round State",
+          description: validation.error?.issues[0]?.message || "Current round data is invalid",
+        });
+        return { deferred: false };
+      }
 
-    setLoadingRound(true);
-    try {
+      const incomplete = courts.filter(ct => ct.scoreA === undefined || ct.scoreB === undefined);
+      if (incomplete.length > 0) {
+        toast({ variant: "destructive", title: "Please enter all scores before advancing" });
+        return { deferred: false };
+      }
+
+      setLoadingRound(true);
+      try {
       // Finish current round in DB & calculate scores/elo
       await supabase.from("rounds").update({ finished: true }).eq("id", roundId);
       await calculateRoundPoints();
@@ -383,6 +421,11 @@ export function useEventControl(eventId?: string) {
     } finally {
       setLoadingRound(false);
     }
+    }, 'prepareAdvanceRound', 'roundGeneration', { 
+      roundNum, 
+      playerCount: Object.keys(players).length,
+      format: meta?.format 
+    });
   };
 
   /** Persist a prepared next round (used after wildcard reveal) */
