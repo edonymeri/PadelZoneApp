@@ -11,6 +11,23 @@ export interface FormatSpecificScoringConfig {
   winnersCourtBonusStartRound: number;
 }
 
+export interface WinnersCourtScoring {
+  enableCourtHierarchy: boolean;
+  courtOneBonusPoints: number;
+  courtTwoBonusPoints: number;
+  courtThreeBonusPoints: number;
+}
+
+export interface AmericanoScoring {
+  enableBalancedScoring: boolean;
+  partnerVarietyBonus: number;
+}
+
+export interface FormatSpecific {
+  winnersCourtScoring: WinnersCourtScoring;
+  americanoScoring: AmericanoScoring;
+}
+
 export interface ScoringConfig {
   defaultPointsMode: 'points' | 'time';
   minPointsPerGame: number;
@@ -18,6 +35,7 @@ export interface ScoringConfig {
   defaultPointsPerGame: number;
   
   // Format-specific configurations
+  formatSpecific: FormatSpecific;
   winnersCourtConfig: FormatSpecificScoringConfig;
   americanoConfig: FormatSpecificScoringConfig;
   
@@ -169,6 +187,18 @@ export const DEFAULT_SCORING_CONFIG: ScoringConfig = {
   defaultPointsPerGame: 21,
   
   // Format-specific configurations
+  formatSpecific: {
+    winnersCourtScoring: {
+      enableCourtHierarchy: true,
+      courtOneBonusPoints: 2,
+      courtTwoBonusPoints: 1,
+      courtThreeBonusPoints: 1,
+    },
+    americanoScoring: {
+      enableBalancedScoring: true,
+      partnerVarietyBonus: 1,
+    },
+  },
   winnersCourtConfig: {
     baseWinPoints: 3,
     marginBonusThreshold: 10,
