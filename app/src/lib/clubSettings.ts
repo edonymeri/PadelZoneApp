@@ -297,7 +297,7 @@ export const DEFAULT_PLAYER_CONFIG: PlayerConfig = {
   winnersCourtMaxPlayers: 32,
   americanoMinPlayers: 8,
   americanoMaxPlayers: 24,
-  americanoRequireEvenPlayers: true,
+  americanoRequireEvenPlayers: false,
   americanoRequireCompleteRotation: true,
 };
 
@@ -348,7 +348,8 @@ export function getFormatSpecificLeaderboardStats(
 export function validatePlayerCountForFormat(
   playerCount: number,
   format: 'winners-court' | 'americano',
-  playerConfig: PlayerConfig
+  playerConfig: PlayerConfig,
+  options?: { courts?: number }
 ): { valid: boolean; message?: string } {
   if (format === 'winners-court') {
     if (playerCount < playerConfig.winnersCourtMinPlayers) {
@@ -377,10 +378,34 @@ export function validatePlayerCountForFormat(
         message: `Americano supports maximum ${playerConfig.americanoMaxPlayers} players` 
       };
     }
-    if (playerConfig.americanoRequireEvenPlayers && playerCount % 2 !== 0) {
+    const courts = options?.courts;
+    const basePlayers = courts ? courts * 4 : undefined;
+    const allowsSingleRest = basePlayers !== undefined && playerCount === basePlayers + 1;
+
+    if (playerConfig.americanoRequireEvenPlayers && playerCount % 2 !== 0 && !allowsSingleRest) {
       return { 
         valid: false, 
         message: 'Americano requires an even number of players' 
+      };
+    }
+
+    if (!playerConfig.americanoRequireEvenPlayers && playerCount % 2 !== 0 && !allowsSingleRest) {
+      if (basePlayers) {
+        return {
+          valid: false,
+          message: `With ${courts} court${courts === 1 ? '' : 's'}, roster either ${basePlayers} or ${basePlayers + 1} players so rounds stay balanced`
+        };
+      }
+      return { 
+        valid: false, 
+        message: 'Americano supports at most one rotating rest slot each round' 
+      };
+    }
+
+    if (basePlayers && playerCount < basePlayers) {
+      return {
+        valid: false,
+        message: `Americano with ${courts} court${courts === 1 ? '' : 's'} needs at least ${basePlayers} players`
       };
     }
   }

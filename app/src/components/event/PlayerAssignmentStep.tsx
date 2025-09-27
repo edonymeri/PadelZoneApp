@@ -37,6 +37,8 @@ export default function PlayerAssignmentStep({
   const [players, setPlayers] = useState<Player[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const singleRestCapacity = requiredPlayers + 1;
+  const courtCount = Math.max(1, Math.round(requiredPlayers / 4));
 
   // Load club players
   useEffect(() => {
@@ -135,7 +137,7 @@ export default function PlayerAssignmentStep({
           <div className="text-sm text-gray-600">
             {format === 'americano' ? (
               <span>
-                <strong>Americano format:</strong> Requires an even number of players (minimum {requiredPlayers})
+                <strong>Americano format:</strong> Works best in groups of four. With {courtCount} court{courtCount === 1 ? '' : 's'} you can roster {requiredPlayers} players, or add a {singleRestCapacity}th player to rotate rest each round.
               </span>
             ) : (
               <span>
@@ -143,6 +145,11 @@ export default function PlayerAssignmentStep({
               </span>
             )}
           </div>
+          {format === 'americano' && selectedPlayers.length === singleRestCapacity && (
+            <div className="text-sm text-blue-600">
+              ℹ️ We'll rotate the extra player so everyone rests evenly.
+            </div>
+          )}
           {selectedPlayers.length < requiredPlayers && (
             <div className="text-sm text-orange-600 font-medium">
               ⚠️ Need at least {requiredPlayers - selectedPlayers.length} more player{requiredPlayers - selectedPlayers.length !== 1 ? 's' : ''}

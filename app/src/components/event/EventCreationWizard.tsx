@@ -471,7 +471,7 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
     
     // Add format-specific validation if player config is loaded
     if (playerConfig) {
-      const validation = validatePlayerCountForFormat(basicRequired, format, playerConfig);
+  const validation = validatePlayerCountForFormat(basicRequired, format, playerConfig, { courts });
       if (!validation.valid) {
         // Return minimum valid count for the format
         return format === 'winners-court' 
@@ -610,7 +610,7 @@ export default function EventCreationWizard({ clubId, onEventCreated, onCancel }
       case "players":
         // Use format-aware player validation
         if (playerConfig) {
-          const validation = validatePlayerCountForFormat(selectedPlayers.length, format, playerConfig);
+          const validation = validatePlayerCountForFormat(selectedPlayers.length, format, playerConfig, { courts });
           if (!validation.valid) {
             toast({ 
               variant: "destructive", 

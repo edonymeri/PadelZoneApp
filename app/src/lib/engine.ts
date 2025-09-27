@@ -113,7 +113,7 @@ function buildPartnerHistory(previousRounds: RoundState[], players: UUID[]): Map
     history.set(playerId, {
       playerId,
       partners: new Set<UUID>(),
-      opponents: new Set<UUID>(),
+      opponents: new Map<UUID, number>(),
       restCount: 0,
       gamesPlayed: 0
     });
@@ -139,8 +139,10 @@ function buildPartnerHistory(previousRounds: RoundState[], players: UUID[]): Map
       // Record opponents
       [a1, a2].forEach(p1 => {
         [b1, b2].forEach(p2 => {
-          history.get(p1)?.opponents.add(p2);
-          history.get(p2)?.opponents.add(p1);
+          const h1Opp = history.get(p1)?.opponents;
+          const h2Opp = history.get(p2)?.opponents;
+          if (h1Opp) h1Opp.set(p2, (h1Opp.get(p2) ?? 0) + 1);
+          if (h2Opp) h2Opp.set(p1, (h2Opp.get(p1) ?? 0) + 1);
         });
       });
       
@@ -187,9 +189,13 @@ function selectPlayersForRound(players: UUID[], courts: number, history: Map<UUI
     return hA.gamesPlayed - hB.gamesPlayed;
   });
   
+  const restSlots = Math.max(0, players.length - maxPlaying);
+  const resting = sortedPlayers.slice(0, restSlots);
+  const playing = sortedPlayers.slice(restSlots, restSlots + maxPlaying);
+
   return {
-    playing: sortedPlayers.slice(0, maxPlaying),
-    resting: sortedPlayers.slice(maxPlaying)
+    playing,
+    resting
   };
 }
 
@@ -202,57 +208,186 @@ function generateAmericanoIndividualPairings(
     throw new Error(`Expected ${courts * 4} players, got ${playingPlayers.length}`);
   }
   
-  const courtMatches: CourtMatch[] = [];
-  const usedPlayers = new Set<UUID>();
-  
-  // Sort players by ELO descending for initial seeding, then apply rotation logic
-  const playersByElo = [...playingPlayers].sort((a, b) => {
-    // For now, assume random ELO ordering. In practice, you'd fetch ELO from player data
-    return Math.random() - 0.5;
+  const matches: CourtMatch[] = [];
+  const availablePlayers = new Set<UUID>(playingPlayers);
+
+  const sortedPlayers = [...availablePlayers].sort((a, b) => {
+    const historyA = history.get(a)!;
+    const historyB = history.get(b)!;
+
+    if (historyA.gamesPlayed !== historyB.gamesPlayed) {
+      return historyA.gamesPlayed - historyB.gamesPlayed;
+    }
+
+    if (historyA.partners.size !== historyB.partners.size) {
+      return historyA.partners.size - historyB.partners.size;
+    }
+
+    return historyA.opponents.size - historyB.opponents.size;
   });
-  
-  // Create blocks of 4 players for each court
-  for (let courtNum = 1; courtNum <= courts; courtNum++) {
-    const blockStart = (courtNum - 1) * 4;
-    const block = playersByElo.slice(blockStart, blockStart + 4);
-    
-    if (block.length < 4) {
-      throw new Error(`Court ${courtNum} doesn't have 4 players in block`);
+
+  const playerOrder = new Set(sortedPlayers);
+
+  const incrementOpponentCount = (player: UUID, opponent: UUID) => {
+    const map = history.get(player)?.opponents;
+    if (!map) return;
+    map.set(opponent, (map.get(opponent) ?? 0) + 1);
+  };
+
+  const decrementOpponentCount = (player: UUID, opponent: UUID) => {
+    const map = history.get(player)?.opponents;
+    if (!map) return;
+    const current = (map.get(opponent) ?? 0) - 1;
+    if (current <= 0) {
+      map.delete(opponent);
+    } else {
+      map.set(opponent, current);
     }
-    
-    // Initial pairing: [0,3] vs [1,2] (like social golfers)
-    let [p1, p2, p3, p4] = block;
-    let teamA: [UUID, UUID] = [p1, p4];
-    let teamB: [UUID, UUID] = [p2, p3];
-    
-    // Check for partner repeats and swap if needed
-    const h1 = history.get(p1)!;
-    const h2 = history.get(p2)!;
-    
-    if (h1.partners.has(p4) || h2.partners.has(p3)) {
-      // Swap to minimize repeats: [0,2] vs [1,3]
-      teamA = [p1, p3];
-      teamB = [p2, p4];
+  };
+
+  const getOpponentCount = (player: UUID, opponent: UUID) => {
+    const map = history.get(player)?.opponents;
+    return map?.get(opponent) ?? 0;
+  };
+
+  const tryBuildMatches = (remainingPlayers: Set<UUID>, courtIndex: number): boolean => {
+    if (remainingPlayers.size === 0) {
+      return true;
     }
-    
-    courtMatches.push({
-      court_num: courtNum,
-      teamA,
-      teamB,
-      scoreA: undefined,
-      scoreB: undefined
+
+    const candidates = [...remainingPlayers].sort((a, b) => {
+      if (playerOrder.has(a) && !playerOrder.has(b)) return -1;
+      if (playerOrder.has(b) && !playerOrder.has(a)) return 1;
+
+      const historyA = history.get(a)!;
+      const historyB = history.get(b)!;
+
+      if (historyA.gamesPlayed !== historyB.gamesPlayed) {
+        return historyA.gamesPlayed - historyB.gamesPlayed;
+      }
+
+      return historyA.partners.size - historyB.partners.size;
     });
-    
-    // Mark players as used
-    [teamA[0], teamA[1], teamB[0], teamB[1]].forEach(p => usedPlayers.add(p));
+
+    const anchor = candidates[0];
+    const anchorHistory = history.get(anchor)!;
+
+    const potentialPartners = candidates
+      .slice(1)
+      .filter((candidate) => !anchorHistory.partners.has(candidate))
+      .sort((a, b) => {
+        const historyA = history.get(a)!;
+        const historyB = history.get(b)!;
+        return historyA.partners.size - historyB.partners.size;
+      });
+
+    for (const partner of potentialPartners) {
+      const partnerHistory = history.get(partner)!;
+
+      const remainingAfterPair = candidates.filter((p) => p !== anchor && p !== partner);
+      if (remainingAfterPair.length < 2) {
+        continue;
+      }
+
+      const opponentPairs: Array<{ team: [UUID, UUID]; penalty: number }> = [];
+
+      for (let i = 0; i < remainingAfterPair.length; i++) {
+        for (let j = i + 1; j < remainingAfterPair.length; j++) {
+          const opp1 = remainingAfterPair[i];
+          const opp2 = remainingAfterPair[j];
+
+          const oppHistory1 = history.get(opp1)!;
+          const oppHistory2 = history.get(opp2)!;
+
+          if (oppHistory1.partners.has(opp2)) {
+            continue;
+          }
+
+          const penalty =
+            getOpponentCount(anchor, opp1) +
+            getOpponentCount(anchor, opp2) +
+            getOpponentCount(partner, opp1) +
+            getOpponentCount(partner, opp2) +
+            getOpponentCount(opp1, anchor) +
+            getOpponentCount(opp1, partner) +
+            getOpponentCount(opp2, anchor) +
+            getOpponentCount(opp2, partner);
+
+          opponentPairs.push({
+            team: [opp1, opp2],
+            penalty,
+          });
+        }
+      }
+
+      opponentPairs.sort((a, b) => a.penalty - b.penalty);
+
+      for (const { team: [opp1, opp2] } of opponentPairs) {
+        const oppHistory1 = history.get(opp1)!;
+        const oppHistory2 = history.get(opp2)!;
+
+        const teamA: [UUID, UUID] = [anchor, partner];
+        const teamB: [UUID, UUID] = [opp1, opp2];
+
+        remainingPlayers.delete(anchor);
+        remainingPlayers.delete(partner);
+        remainingPlayers.delete(opp1);
+        remainingPlayers.delete(opp2);
+
+        matches.push({
+          court_num: matches.length + 1,
+          teamA,
+          teamB,
+          scoreA: undefined,
+          scoreB: undefined,
+        });
+
+        anchorHistory.partners.add(partner);
+        partnerHistory.partners.add(anchor);
+        oppHistory1.partners.add(opp2);
+        oppHistory2.partners.add(opp1);
+
+        for (const home of teamA) {
+          for (const away of teamB) {
+            incrementOpponentCount(home, away);
+            incrementOpponentCount(away, home);
+          }
+        }
+
+        if (tryBuildMatches(remainingPlayers, courtIndex + 1)) {
+          return true;
+        }
+
+        for (const home of teamA) {
+          for (const away of teamB) {
+            decrementOpponentCount(home, away);
+            decrementOpponentCount(away, home);
+          }
+        }
+
+        oppHistory1.partners.delete(opp2);
+        oppHistory2.partners.delete(opp1);
+        anchorHistory.partners.delete(partner);
+        partnerHistory.partners.delete(anchor);
+
+        matches.pop();
+        remainingPlayers.add(anchor);
+        remainingPlayers.add(partner);
+        remainingPlayers.add(opp1);
+        remainingPlayers.add(opp2);
+      }
+    }
+
+    return false;
+  };
+
+  const success = tryBuildMatches(availablePlayers, 0);
+
+  if (!success || matches.length !== courts) {
+    throw new Error('Unable to generate Americano pairings without reusing partners.');
   }
-  
-  // Verify all players are used
-  if (usedPlayers.size !== playingPlayers.length) {
-    throw new Error(`Not all players were assigned. Used: ${usedPlayers.size}, Expected: ${playingPlayers.length}`);
-  }
-  
-  return courtMatches;
+
+  return matches;
 }
 
 function generateAmericanoTeamPairings(

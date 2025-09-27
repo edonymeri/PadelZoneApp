@@ -153,11 +153,19 @@ export function validatePlayerCountForFormat(playerCount: number, format: 'winne
         error: 'Americano requires at least 4 players'
       };
     }
-    
-    if (playerCount % 2 !== 0) {
+
+    if (playerCount < requiredPlayers) {
       return {
         success: false,
-        error: 'Americano requires an even number of players'
+        error: `Americano with ${courts} court${courts === 1 ? '' : 's'} needs at least ${requiredPlayers} players`
+      };
+    }
+
+    const allowsSingleRest = playerCount === requiredPlayers + 1;
+    if (playerCount % 2 !== 0 && !allowsSingleRest) {
+      return {
+        success: false,
+        error: `Americano supports up to one rotating rest slot. With ${courts} court${courts === 1 ? '' : 's'}, roster ${requiredPlayers} or ${requiredPlayers + 1} players.`
       };
     }
   }

@@ -51,7 +51,7 @@ export type Team = {
 export type AmericanoPartnerHistory = {
   playerId: UUID;
   partners: Set<UUID>;
-  opponents: Set<UUID>;
+  opponents: Map<UUID, number>;
   restCount: number;
   gamesPlayed: number;
 };
